@@ -177,11 +177,11 @@ export default function DashboardPage() {
     );
   }
 
-  // Derive QR URL: prefer configured NEXT_PUBLIC_APP_URL, but dynamically fall back to current browser origin if in production/Vercel
+  // Priority: Use the current browser URL origin in production so QR always matches the exact active deployed domain
   const appBaseUrl =
-    process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("placeholder")
-      ? process.env.NEXT_PUBLIC_APP_URL
-      : origin || undefined;
+    origin && !origin.includes("localhost")
+      ? origin
+      : process.env.NEXT_PUBLIC_APP_URL || origin || undefined;
 
   const qrInfo = selectedBusiness
     ? getCanonicalPublicReviewUrl(selectedBusiness.slug, appBaseUrl)
