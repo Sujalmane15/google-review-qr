@@ -160,6 +160,14 @@ export default function DashboardPage() {
     router.push("/login");
   };
 
+  const [origin, setOrigin] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm">
@@ -169,8 +177,14 @@ export default function DashboardPage() {
     );
   }
 
+  // Derive QR URL: prefer configured NEXT_PUBLIC_APP_URL, but dynamically fall back to current browser origin if in production/Vercel
+  const appBaseUrl =
+    process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes("placeholder")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : origin || undefined;
+
   const qrInfo = selectedBusiness
-    ? getCanonicalPublicReviewUrl(selectedBusiness.slug, process.env.NEXT_PUBLIC_APP_URL)
+    ? getCanonicalPublicReviewUrl(selectedBusiness.slug, appBaseUrl)
     : null;
 
   return (
