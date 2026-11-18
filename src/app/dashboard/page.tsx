@@ -129,7 +129,17 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || "Failed to save business");
+        let msg = data.error || "Failed to save business";
+        if (data.details) {
+          const detailMsgs = Object.entries(data.details)
+            .filter(([k]) => k !== "_errors")
+            .map(([k, v]: [string, any]) => `${k}: ${v._errors?.join(", ")}`)
+            .filter(Boolean);
+          if (detailMsgs.length > 0) {
+            msg += ` (${detailMsgs.join("; ")})`;
+          }
+        }
+        setFormError(msg);
         setSaving(false);
         return;
       }

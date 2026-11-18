@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
 import crypto from "crypto";
 import { Business } from "@/types";
 import { StorageAdapter } from "./adapter";
@@ -20,16 +21,31 @@ export const SEED_BUSINESS: Business = {
 };
 
 /**
+ * In-memory fallback map for serverless runtime environments (such as Vercel)
+ * where the filesystem is read-only or ephemeral.
+ */
+const memoryStorage = new Map<string, Business>();
+memoryStorage.set(SEED_BUSINESS.id, SEED_BUSINESS);
+
+/**
  * Local JSON Storage Adapter (Development & Demo Only).
  * Implements atomic writes via temp file replacement to prevent corrupt reads.
- * NOTE: For Vercel production deployment, configure DATABASE_URL to use PostgreSQL.
+ * Gracefully falls back to /tmp or in-memory if disk writes are read-only on serverless hosts.
  */
 export class JsonStorageAdapter implements StorageAdapter {
   private filePath: string;
   private isInitialized = false;
+  private useMemoryFallback = false;
 
   constructor(customPath?: string) {
-    this.filePath = customPath || path.join(process.cwd(), "data", "businesses.json");
+    if (customPath) {
+      this.filePath = customPath;
+    } else if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      // In Vercel serverless functions, only /tmp is writable
+      this.filePath = path.join(os.tmpdir(), "rmqr", "businesses.json");
+    } else {
+      this.filePath = path.join(process.cwd(), "data", "businesses.json");
+    }
   }
 
   async init(): Promise<void> {
@@ -46,27 +62,42 @@ export class JsonStorageAdapter implements StorageAdapter {
       }
       this.isInitialized = true;
     } catch (err) {
-      console.error("Failed to initialize JsonStorageAdapter:", err);
-      throw err;
+      console.warn("Filesystem not writable, switching to in-memory storage fallback:", err);
+      this.useMemoryFallback = true;
+      this.isInitialized = true;
     }
   }
 
   private async readAll(): Promise<Business[]> {
     await this.init();
+    if (this.useMemoryFallback) {
+      return Array.from(memoryStorage.values());
+    }
     try {
       const content = await fs.readFile(this.filePath, "utf-8");
-      return JSON.parse(content) as Business[];
+      const list = JSON.parse(content) as Business[];
+      return list.length > 0 ? list : [SEED_BUSINESS];
     } catch {
-      return [SEED_BUSINESS];
+      return Array.from(memoryStorage.values());
     }
   }
 
   private async writeAtomic(businesses: Business[]): Promise<void> {
-    const dir = path.dirname(this.filePath);
-    await fs.mkdir(dir, { recursive: true });
-    const tempFile = `${this.filePath}.${crypto.randomUUID()}.tmp`;
-    await fs.writeFile(tempFile, JSON.stringify(businesses, null, 2), "utf-8");
-    await fs.rename(tempFile, this.filePath);
+    // Keep in-memory store in sync
+    businesses.forEach((b) => memoryStorage.set(b.id, b));
+
+    if (this.useMemoryFallback) return;
+
+    try {
+      const dir = path.dirname(this.filePath);
+      await fs.mkdir(dir, { recursive: true });
+      const tempFile = `${this.filePath}.${crypto.randomUUID()}.tmp`;
+      await fs.writeFile(tempFile, JSON.stringify(businesses, null, 2), "utf-8");
+      await fs.rename(tempFile, this.filePath);
+    } catch (err) {
+      console.warn("Failed atomic write to disk, using memory fallback:", err);
+      this.useMemoryFallback = true;
+    }
   }
 
   async getBusinessBySlug(slug: string): Promise<Business | null> {
@@ -120,6 +151,9 @@ export class JsonStorageAdapter implements StorageAdapter {
     const filtered = list.filter((b) => b.id !== id);
     if (filtered.length === list.length) {
       return false;
+    }
+    if (this.useMemoryFallback) {
+      memoryStorage.delete(id);
     }
     await this.writeAtomic(filtered);
     return true;
