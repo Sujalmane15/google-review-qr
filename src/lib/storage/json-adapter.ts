@@ -6,26 +6,40 @@ import { Business } from "@/types";
 import { StorageAdapter } from "./adapter";
 
 /**
- * DEFAULT SEED DATA
- * Pre-populates "Kartik Restaurant & Bar" for instant testing.
+ * DEFAULT SEED BUSINESSES
+ * Pre-populates default businesses so they are permanently available in serverless environments.
  */
-export const SEED_BUSINESS: Business = {
-  id: "kartik-default-id",
-  name: "Kartik Restaurant & Bar",
-  slug: "kartik-restaurant-bar",
-  googleReviewUrl: "https://g.page/r/example-kartik-restaurant/review",
-  description: "Authentic multicuisine dining, warm hospitality, and memorable moments.",
-  accentColor: "#16a34a",
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
+export const SEED_BUSINESSES: Business[] = [
+  {
+    id: "kartik-default-id",
+    name: "Kartik Restaurant & Bar",
+    slug: "kartik-restaurant-bar",
+    googleReviewUrl: "https://g.page/r/example-kartik-restaurant/review",
+    description: "Authentic multicuisine dining, warm hospitality, and memorable moments.",
+    accentColor: "#16a34a",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "rmsolution-default-id",
+    name: "rmsolution",
+    slug: "rmsolution",
+    googleReviewUrl: "https://g.page/r/CdT-R2IpVtpnEBM/review",
+    description: "DEMO BUSINESS",
+    accentColor: "#16a34a",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export const SEED_BUSINESS = SEED_BUSINESSES[0];
 
 /**
  * In-memory fallback map for serverless runtime environments (such as Vercel)
  * where the filesystem is read-only or ephemeral.
  */
 const memoryStorage = new Map<string, Business>();
-memoryStorage.set(SEED_BUSINESS.id, SEED_BUSINESS);
+SEED_BUSINESSES.forEach((b) => memoryStorage.set(b.id, b));
 
 /**
  * Local JSON Storage Adapter (Development & Demo Only).
@@ -57,8 +71,8 @@ export class JsonStorageAdapter implements StorageAdapter {
       try {
         await fs.access(this.filePath);
       } catch {
-        // File does not exist, initialize with seed business
-        await this.writeAtomic([SEED_BUSINESS]);
+        // File does not exist, initialize with seed businesses
+        await this.writeAtomic(SEED_BUSINESSES);
       }
       this.isInitialized = true;
     } catch (err) {
@@ -76,7 +90,7 @@ export class JsonStorageAdapter implements StorageAdapter {
     try {
       const content = await fs.readFile(this.filePath, "utf-8");
       const list = JSON.parse(content) as Business[];
-      return list.length > 0 ? list : [SEED_BUSINESS];
+      return list.length > 0 ? list : SEED_BUSINESSES;
     } catch {
       return Array.from(memoryStorage.values());
     }
