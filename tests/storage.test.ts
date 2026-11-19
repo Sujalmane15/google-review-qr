@@ -18,11 +18,11 @@ describe("Storage Adapter (Local Dev & Verification)", () => {
     await adapter.init();
   });
 
-  it("should initialize with the seed business 'Kartik Restaurant & Bar'", async () => {
-    const kartik = await adapter.getBusinessBySlug("kartik-restaurant-bar");
-    expect(kartik).not.toBeNull();
-    expect(kartik?.name).toBe("Kartik Restaurant & Bar");
-    expect(kartik?.googleReviewUrl).toContain("example-kartik-restaurant");
+  it("should initialize with the seed business 'RMSolution Tech'", async () => {
+    const rmsolution = await adapter.getBusinessBySlug("rmsolution-tech");
+    expect(rmsolution).not.toBeNull();
+    expect(rmsolution?.name).toBe("RMSolution Tech");
+    expect(rmsolution?.categoryName).toBe("IT & Technology Companies");
   });
 
   it("should create a new business profile", async () => {

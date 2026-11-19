@@ -34,14 +34,12 @@ export async function POST(req: NextRequest) {
     const storage = getStorage();
     const existing = await storage.getBusinessBySlug(validation.data.slug);
 
-    // If existing and doesn't match current updating ID
     if (existing && body.id && existing.id !== body.id) {
       return NextResponse.json(
         { error: "A business with this slug already exists." },
         { status: 409 }
       );
     } else if (existing && !body.id) {
-      // Updating existing by slug or conflicting
       return NextResponse.json(
         { error: "A business with this slug already exists. Please choose a unique slug." },
         { status: 409 }
@@ -52,10 +50,14 @@ export async function POST(req: NextRequest) {
       id: body.id,
       name: validation.data.name,
       slug: validation.data.slug,
+      categoryId: validation.data.categoryId || undefined,
+      categoryName: validation.data.categoryName || undefined,
       googleReviewUrl: validation.data.googleReviewUrl,
       logoUrl: validation.data.logoUrl || undefined,
       description: validation.data.description || undefined,
       accentColor: validation.data.accentColor || undefined,
+      customServices: validation.data.customServices || [],
+      isActive: validation.data.isActive ?? true,
     });
 
     return NextResponse.json(saved, { status: 200 });

@@ -9,8 +9,9 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
+  Briefcase,
 } from "lucide-react";
-import { ExperienceTag, SupportedLanguage } from "@/types";
+import { SupportedLanguage } from "@/types";
 import { translations } from "@/lib/i18n";
 import { StarRating } from "@/components/StarRating";
 import { TagSelector } from "@/components/TagSelector";
@@ -20,10 +21,14 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 interface BusinessProfile {
   name: string;
   slug: string;
+  categoryId?: string;
+  categoryName?: string;
   googleReviewUrl: string;
   logoUrl?: string;
   description?: string;
   accentColor?: string;
+  services: string[];
+  placeholderText?: Record<string, string>;
 }
 
 export default function CustomerReviewPage({
@@ -40,7 +45,7 @@ export default function CustomerReviewPage({
   // Review Form State
   const [language, setLanguage] = useState<SupportedLanguage>("en");
   const [rating, setRating] = useState<number>(5);
-  const [selectedTags, setSelectedTags] = useState<ExperienceTag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customerText, setCustomerText] = useState<string>("");
 
   // AI Generation State
@@ -84,6 +89,7 @@ export default function CustomerReviewPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessName: business.name,
+          categoryName: business.categoryName,
           rating,
           selectedTags,
           optionalCustomerText: customerText,
@@ -122,9 +128,7 @@ export default function CustomerReviewPage({
       setCopiedToast(true);
       setTimeout(() => setCopiedToast(false), 5000);
       return true;
-    } catch (err) {
-      console.warn("Clipboard access denied:", err);
-      // Fallback using textarea element if permitted
+    } catch {
       try {
         const textarea = document.createElement("textarea");
         textarea.value = text;
@@ -156,7 +160,6 @@ export default function CustomerReviewPage({
       await copyToClipboard(textToCopy);
     }
 
-    // Direct opening of configured Google Review destination
     window.open(business.googleReviewUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -184,20 +187,26 @@ export default function CustomerReviewPage({
   }
 
   const accentColor = business.accentColor || "#16a34a";
+  
+  // Dynamic placeholder text: use category-specific if available, else general translations
+  const placeholder =
+    business.placeholderText?.[language] ||
+    business.placeholderText?.en ||
+    t.placeholderText;
 
   return (
     <main className="min-h-screen bg-slate-50/70 flex flex-col items-center p-4 sm:p-6 pb-20">
       <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden">
         {/* Top Header / Language Switcher */}
         <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-slate-100">
-          <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-            {t.title}
-          </span>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+            <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+            <span>{business.categoryName || t.title}</span>
+          </div>
           <LanguageSelector
             currentLanguage={language}
             onChange={(l) => {
               setLanguage(l);
-              // Clear previous suggestions if switching language
               if (suggestions.length > 0) {
                 setSuggestions([]);
                 setSelectedSuggestionIndex(null);
@@ -245,20 +254,22 @@ export default function CustomerReviewPage({
             />
           </div>
 
-          {/* Experience Tags */}
-          <div className="mb-5">
-            <label className="block text-xs font-semibold text-slate-700 text-center mb-2.5">
-              {t.whatDidYouLike}
-            </label>
-            <TagSelector
-              selectedTags={selectedTags}
-              onChange={setSelectedTags}
-              tagLabels={t.tags}
-              accentColor={accentColor}
-            />
-          </div>
+          {/* Dynamic Category Services / Tags */}
+          {business.services && business.services.length > 0 && (
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-slate-700 text-center mb-2.5">
+                {t.whatDidYouLike}
+              </label>
+              <TagSelector
+                tags={business.services}
+                selectedTags={selectedTags}
+                onChange={setSelectedTags}
+                accentColor={accentColor}
+              />
+            </div>
+          )}
 
-          {/* Optional Thoughts Input */}
+          {/* Optional Thoughts Input (No Food Mentions) */}
           <div className="mb-6">
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               {t.anythingToMention}
@@ -267,7 +278,7 @@ export default function CustomerReviewPage({
               rows={2}
               value={customerText}
               onChange={(e) => setCustomerText(e.target.value)}
-              placeholder={t.placeholderText}
+              placeholder={placeholder}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
               maxLength={500}
             />
@@ -293,7 +304,7 @@ export default function CustomerReviewPage({
             </div>
           )}
 
-          {/* Suggestions List (Option 1, 2, 3) */}
+          {/* Suggestions List */}
           {suggestions.length > 0 && (
             <div className="mb-6 space-y-2.5 animate-fadeIn">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">

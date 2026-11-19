@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-export const ValidTags = ["food", "service", "ambience", "staff", "value"] as const;
 export const ValidLanguages = ["en", "mr", "hi"] as const;
 
 export const ReviewSuggestionSchema = z.object({
   businessName: z.string().trim().min(1, "Business name is required").max(100),
+  categoryName: z.string().trim().max(100).optional(),
   rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
-  selectedTags: z.array(z.enum(ValidTags)).default([]),
+  selectedTags: z.array(z.string().trim().min(1).max(50)).default([]),
   optionalCustomerText: z.string().trim().max(500, "Text must not exceed 500 characters").optional().default(""),
   language: z.enum(ValidLanguages).default("en"),
 });
@@ -39,6 +39,8 @@ export const BusinessInputSchema = z.object({
     .min(2, "Slug must be at least 2 characters")
     .max(80)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must only contain lowercase alphanumeric characters and hyphens"),
+  categoryId: z.string().trim().optional().or(z.literal("")),
+  categoryName: z.string().trim().max(100).optional().or(z.literal("")),
   googleReviewUrl: GoogleReviewUrlSchema,
   logoUrl: z.string().trim().url("Must be a valid URL").optional().or(z.literal("")),
   description: z.string().trim().max(280, "Description cannot exceed 280 characters").optional().or(z.literal("")),
@@ -48,6 +50,22 @@ export const BusinessInputSchema = z.object({
     .regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Accent color must be a valid hex code (e.g. #16a34a)")
     .optional()
     .or(z.literal("")),
+  customServices: z.array(z.string().trim().min(1)).optional().default([]),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const CategoryInputSchema = z.object({
+  name: z.string().trim().min(2, "Category name is required").max(100),
+  slug: z
+    .string()
+    .trim()
+    .min(2, "Slug must be at least 2 characters")
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must only contain lowercase alphanumeric characters and hyphens"),
+  description: z.string().trim().max(300).optional().or(z.literal("")),
+  icon: z.string().trim().max(50).optional().or(z.literal("")),
+  isActive: z.boolean().default(true),
+  services: z.array(z.string().trim().min(1)).min(1, "At least one service tag is required"),
 });
 
 export const AdminLoginSchema = z.object({

@@ -1,23 +1,21 @@
 "use client";
 
 import React from "react";
-import { ExperienceTag } from "@/types";
-import { ValidTags } from "@/lib/validations";
 
 interface TagSelectorProps {
-  selectedTags: ExperienceTag[];
-  onChange: (tags: ExperienceTag[]) => void;
-  tagLabels: Record<ExperienceTag, string>;
+  tags: string[];
+  selectedTags: string[];
+  onChange: (tags: string[]) => void;
   accentColor?: string;
 }
 
 export function TagSelector({
+  tags,
   selectedTags,
   onChange,
-  tagLabels,
   accentColor = "#16a34a",
 }: TagSelectorProps) {
-  const toggleTag = (tag: ExperienceTag) => {
+  const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       onChange(selectedTags.filter((t) => t !== tag));
     } else {
@@ -25,16 +23,20 @@ export function TagSelector({
     }
   };
 
+  if (!tags || tags.length === 0) {
+    return null;
+  }
+
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-      {ValidTags.map((tag) => {
+      {tags.map((tag) => {
         const isSelected = selectedTags.includes(tag);
         return (
           <button
             key={tag}
             type="button"
             onClick={() => toggleTag(tag)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all shadow-sm active:scale-95 border ${
+            className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm active:scale-95 border ${
               isSelected
                 ? "text-white shadow-md"
                 : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
@@ -45,7 +47,7 @@ export function TagSelector({
             }}
           >
             {isSelected ? "✓ " : "+ "}
-            {tagLabels[tag] || tag}
+            {tag}
           </button>
         );
       })}

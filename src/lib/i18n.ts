@@ -1,4 +1,4 @@
-import { ExperienceTag, SupportedLanguage } from "@/types";
+import { SupportedLanguage } from "@/types";
 
 export interface Translations {
   title: string;
@@ -15,7 +15,6 @@ export interface Translations {
   continueToGoogle: string;
   reviewCopiedToast: string;
   copiedFallback: string;
-  tags: Record<ExperienceTag, string>;
   starsLabel: (rating: number) => string;
   aiDisclaimer: string;
   emptyReviewWarning: string;
@@ -27,9 +26,9 @@ export const translations: Record<SupportedLanguage, Translations> = {
   en: {
     title: "Google Review Helper",
     howWasExperience: "How was your experience?",
-    whatDidYouLike: "Tell us what you liked:",
+    whatDidYouLike: "Highlight what you appreciated:",
     anythingToMention: "Anything specific you'd like to mention?",
-    placeholderText: "e.g. delicious paneer, quick service, warm ambiance...",
+    placeholderText: "e.g. prompt service, high quality work, professional communication...",
     generateButton: "✨ Generate 3 Review Suggestions",
     generating: "Generating honest suggestions...",
     selectSuggestion: "Choose a draft to customize:",
@@ -39,13 +38,6 @@ export const translations: Record<SupportedLanguage, Translations> = {
     continueToGoogle: "Copy Review & Continue to Google",
     reviewCopiedToast: "Your review has been copied! Paste it on Google and tap Post.",
     copiedFallback: "Copied to clipboard!",
-    tags: {
-      food: "Food",
-      service: "Service",
-      ambience: "Ambience",
-      staff: "Staff",
-      value: "Value",
-    },
     starsLabel: (r) => `${r} star${r > 1 ? "s" : ""}`,
     aiDisclaimer: "AI suggestions are editable drafts based strictly on your selections. Nothing is automatically submitted.",
     emptyReviewWarning: "Please choose a rating to generate suggestions, or proceed directly to Google.",
@@ -57,7 +49,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     howWasExperience: "तुमचा अनुभव कसा होता?",
     whatDidYouLike: "तुम्हाला काय आवडले ते निवडा:",
     anythingToMention: "काही विशेष सांगायचे आहे का?",
-    placeholderText: "उदा. चवदार जेवण, जलद सेवा, सुंदर वातावरण...",
+    placeholderText: "उदा. वेळेत सेवा, दर्जेदार काम, उत्तम सहकार्य...",
     generateButton: "✨ ३ रिव्ह्यू सूचना तयार करा",
     generating: "सूचना तयार होत आहेत...",
     selectSuggestion: "योग्य रिव्ह्यू निवडा:",
@@ -67,13 +59,6 @@ export const translations: Record<SupportedLanguage, Translations> = {
     continueToGoogle: "रिव्ह्यू कॉपी करा आणि गुगलवर जा",
     reviewCopiedToast: "तुमचा रिव्ह्यू कॉपी झाला आहे! गुगलवर जाऊन पेस्ट करा आणि पोस्ट करा.",
     copiedFallback: "क्लिपबोर्डवर कॉपी केले!",
-    tags: {
-      food: "जेवण (Food)",
-      service: "सेवा (Service)",
-      ambience: "वातावरण (Ambience)",
-      staff: "कर्मचारी (Staff)",
-      value: "किफायतशीर (Value)",
-    },
     starsLabel: (r) => `${r} स्टार`,
     aiDisclaimer: "या सूचना तुमच्या निवडीवर आधारित मसुदे आहेत. काहीही आपोआप पोस्ट होत नाही.",
     emptyReviewWarning: "कृपया रेटिंग निवडा किंवा थेट गुगलवर जाऊन रिव्ह्यू द्या.",
@@ -85,7 +70,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     howWasExperience: "आपका अनुभव कैसा रहा?",
     whatDidYouLike: "बताएं आपको क्या पसंद आया:",
     anythingToMention: "कुछ खास जो आप बताना चाहें?",
-    placeholderText: "जैसे: स्वादिष्ट खाना, त्वरित सेवा, अच्छा माहौल...",
+    placeholderText: "जैसे: समय पर सेवा, बेहतरीन काम, पेशेवर रवैया...",
     generateButton: "✨ ३ रिव्यू सुझाव बनाएं",
     generating: "सुझाव तैयार किए जा रहे हैं...",
     selectSuggestion: "अपनी पसंद का रिव्यू चुनें:",
@@ -95,13 +80,6 @@ export const translations: Record<SupportedLanguage, Translations> = {
     continueToGoogle: "रिव्यू कॉपी करें और गूगल पर जाएं",
     reviewCopiedToast: "आपका रिव्यू कॉपी हो गया है! गूगल पर पेस्ट करें और पोस्ट करें।",
     copiedFallback: "क्लिपबोर्ड पर कॉपी किया गया!",
-    tags: {
-      food: "खाना (Food)",
-      service: "सेवा (Service)",
-      ambience: "माहौल (Ambience)",
-      staff: "स्टाफ (Staff)",
-      value: "उचित मूल्य (Value)",
-    },
     starsLabel: (r) => `${r} स्टार`,
     aiDisclaimer: "यह सुझाव केवल आपकी दी गई जानकारी पर आधारित ड्राफ्ट हैं। कुछ भी स्वतः सबमिट नहीं होता।",
     emptyReviewWarning: "कृपया रेटिंग चुनें या सीधे गूगल पर जाकर रिव्यू दें।",

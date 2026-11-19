@@ -2,31 +2,53 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import crypto from "crypto";
-import { Business } from "@/types";
+import { Business, BusinessCategory } from "@/types";
 import { StorageAdapter } from "./adapter";
+import { INITIAL_CATEGORIES } from "@/lib/categories";
 
 /**
  * DEFAULT SEED BUSINESSES
- * Pre-populates default businesses so they are permanently available in serverless environments.
+ * RMSolution Tech is pre-seeded with IT & Technology Company category.
  */
 export const SEED_BUSINESSES: Business[] = [
   {
-    id: "kartik-default-id",
-    name: "Kartik Restaurant & Bar",
-    slug: "kartik-restaurant-bar",
-    googleReviewUrl: "https://g.page/r/example-kartik-restaurant/review",
-    description: "Authentic multicuisine dining, warm hospitality, and memorable moments.",
+    id: "rmsolution-default-id",
+    name: "RMSolution Tech",
+    slug: "rmsolution-tech",
+    categoryId: "cat-it-tech",
+    categoryName: "IT & Technology Companies",
+    googleReviewUrl: "https://g.page/r/CdT-R2IpVtpnEBM/review",
+    description: "Website, Mobile App & Enterprise Software Development services.",
     accentColor: "#16a34a",
+    customServices: [
+      "Web Development",
+      "App Development",
+      "UI/UX Design",
+      "Code Quality",
+      "Timely Delivery",
+      "Customer Support",
+    ],
+    isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: "rmsolution-default-id",
+    id: "rmsolution-legacy-id",
     name: "rmsolution",
     slug: "rmsolution",
+    categoryId: "cat-it-tech",
+    categoryName: "IT & Technology Companies",
     googleReviewUrl: "https://g.page/r/CdT-R2IpVtpnEBM/review",
-    description: "DEMO BUSINESS",
+    description: "Website, App & Software Development services.",
     accentColor: "#16a34a",
+    customServices: [
+      "Web Development",
+      "App Development",
+      "UI/UX Design",
+      "Code Quality",
+      "Timely Delivery",
+    ],
+    isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -34,100 +56,186 @@ export const SEED_BUSINESSES: Business[] = [
 
 export const SEED_BUSINESS = SEED_BUSINESSES[0];
 
-/**
- * In-memory fallback map for serverless runtime environments (such as Vercel)
- * where the filesystem is read-only or ephemeral.
- */
-const memoryStorage = new Map<string, Business>();
-SEED_BUSINESSES.forEach((b) => memoryStorage.set(b.id, b));
+// In-memory fallback maps for serverless runtime
+const memoryBusinesses = new Map<string, Business>();
+SEED_BUSINESSES.forEach((b) => memoryBusinesses.set(b.id, b));
 
-/**
- * Local JSON Storage Adapter (Development & Demo Only).
- * Implements atomic writes via temp file replacement to prevent corrupt reads.
- * Gracefully falls back to /tmp or in-memory if disk writes are read-only on serverless hosts.
- */
+const memoryCategories = new Map<string, BusinessCategory>();
+INITIAL_CATEGORIES.forEach((c) => memoryCategories.set(c.id, c));
+
 export class JsonStorageAdapter implements StorageAdapter {
-  private filePath: string;
+  private businessesFilePath: string;
+  private categoriesFilePath: string;
   private isInitialized = false;
   private useMemoryFallback = false;
 
   constructor(customPath?: string) {
     if (customPath) {
-      this.filePath = customPath;
+      this.businessesFilePath = customPath;
+      this.categoriesFilePath = path.join(path.dirname(customPath), "categories.json");
     } else if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-      // In Vercel serverless functions, only /tmp is writable
-      this.filePath = path.join(os.tmpdir(), "rmqr", "businesses.json");
+      this.businessesFilePath = path.join(os.tmpdir(), "rmqr", "businesses.json");
+      this.categoriesFilePath = path.join(os.tmpdir(), "rmqr", "categories.json");
     } else {
-      this.filePath = path.join(process.cwd(), "data", "businesses.json");
+      this.businessesFilePath = path.join(process.cwd(), "data", "businesses.json");
+      this.categoriesFilePath = path.join(process.cwd(), "data", "categories.json");
     }
   }
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
     try {
-      const dir = path.dirname(this.filePath);
+      const dir = path.dirname(this.businessesFilePath);
       await fs.mkdir(dir, { recursive: true });
 
+      // Initialize businesses
       try {
-        await fs.access(this.filePath);
+        await fs.access(this.businessesFilePath);
       } catch {
-        // File does not exist, initialize with seed businesses
-        await this.writeAtomic(SEED_BUSINESSES);
+        await this.writeBusinessesAtomic(SEED_BUSINESSES);
       }
+
+      // Initialize categories
+      try {
+        await fs.access(this.categoriesFilePath);
+      } catch {
+        await this.writeCategoriesAtomic(INITIAL_CATEGORIES);
+      }
+
       this.isInitialized = true;
     } catch (err) {
-      console.warn("Filesystem not writable, switching to in-memory storage fallback:", err);
+      console.warn("Filesystem not writable, switching to in-memory fallback:", err);
       this.useMemoryFallback = true;
       this.isInitialized = true;
     }
   }
 
-  private async readAll(): Promise<Business[]> {
+  // --- Categories CRUD ---
+  private async readAllCategories(): Promise<BusinessCategory[]> {
     await this.init();
     if (this.useMemoryFallback) {
-      return Array.from(memoryStorage.values());
+      return Array.from(memoryCategories.values());
     }
     try {
-      const content = await fs.readFile(this.filePath, "utf-8");
-      const list = JSON.parse(content) as Business[];
-      return list.length > 0 ? list : SEED_BUSINESSES;
+      const content = await fs.readFile(this.categoriesFilePath, "utf-8");
+      const list = JSON.parse(content) as BusinessCategory[];
+      return list.length > 0 ? list : INITIAL_CATEGORIES;
     } catch {
-      return Array.from(memoryStorage.values());
+      return Array.from(memoryCategories.values());
     }
   }
 
-  private async writeAtomic(businesses: Business[]): Promise<void> {
-    // Keep in-memory store in sync
-    businesses.forEach((b) => memoryStorage.set(b.id, b));
-
+  private async writeCategoriesAtomic(categories: BusinessCategory[]): Promise<void> {
+    categories.forEach((c) => memoryCategories.set(c.id, c));
     if (this.useMemoryFallback) return;
 
     try {
-      const dir = path.dirname(this.filePath);
+      const dir = path.dirname(this.categoriesFilePath);
       await fs.mkdir(dir, { recursive: true });
-      const tempFile = `${this.filePath}.${crypto.randomUUID()}.tmp`;
-      await fs.writeFile(tempFile, JSON.stringify(businesses, null, 2), "utf-8");
-      await fs.rename(tempFile, this.filePath);
+      await fs.writeFile(this.categoriesFilePath, JSON.stringify(categories, null, 2), "utf-8");
     } catch (err) {
-      console.warn("Failed atomic write to disk, using memory fallback:", err);
+      console.warn("Failed category disk write, using memory fallback:", err);
+      this.useMemoryFallback = true;
+    }
+  }
+
+  async getAllCategories(): Promise<BusinessCategory[]> {
+    return this.readAllCategories();
+  }
+
+  async getCategoryById(id: string): Promise<BusinessCategory | null> {
+    const list = await this.readAllCategories();
+    return list.find((c) => c.id === id || c.slug === id) || null;
+  }
+
+  async upsertCategory(
+    data: Omit<BusinessCategory, "id" | "createdAt" | "updatedAt"> & { id?: string }
+  ): Promise<BusinessCategory> {
+    const list = await this.readAllCategories();
+    const now = new Date().toISOString();
+
+    const existingIndex = data.id
+      ? list.findIndex((c) => c.id === data.id)
+      : list.findIndex((c) => c.slug.toLowerCase() === data.slug.toLowerCase());
+
+    if (existingIndex >= 0) {
+      const existing = list[existingIndex];
+      const updated: BusinessCategory = {
+        ...existing,
+        ...data,
+        id: existing.id,
+        slug: data.slug.toLowerCase().trim(),
+        updatedAt: now,
+      };
+      list[existingIndex] = updated;
+      await this.writeCategoriesAtomic(list);
+      return updated;
+    } else {
+      const created: BusinessCategory = {
+        ...data,
+        id: data.id || `cat-${crypto.randomUUID()}`,
+        slug: data.slug.toLowerCase().trim(),
+        createdAt: now,
+        updatedAt: now,
+      };
+      list.push(created);
+      await this.writeCategoriesAtomic(list);
+      return created;
+    }
+  }
+
+  async deleteCategory(id: string): Promise<boolean> {
+    const list = await this.readAllCategories();
+    const filtered = list.filter((c) => c.id !== id);
+    if (filtered.length === list.length) return false;
+    if (this.useMemoryFallback) memoryCategories.delete(id);
+    await this.writeCategoriesAtomic(filtered);
+    return true;
+  }
+
+  // --- Businesses CRUD ---
+  private async readAllBusinesses(): Promise<Business[]> {
+    await this.init();
+    if (this.useMemoryFallback) {
+      return Array.from(memoryBusinesses.values());
+    }
+    try {
+      const content = await fs.readFile(this.businessesFilePath, "utf-8");
+      const list = JSON.parse(content) as Business[];
+      return list.length > 0 ? list : SEED_BUSINESSES;
+    } catch {
+      return Array.from(memoryBusinesses.values());
+    }
+  }
+
+  private async writeBusinessesAtomic(businesses: Business[]): Promise<void> {
+    businesses.forEach((b) => memoryBusinesses.set(b.id, b));
+    if (this.useMemoryFallback) return;
+
+    try {
+      const dir = path.dirname(this.businessesFilePath);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(this.businessesFilePath, JSON.stringify(businesses, null, 2), "utf-8");
+    } catch (err) {
+      console.warn("Failed business disk write, using memory fallback:", err);
       this.useMemoryFallback = true;
     }
   }
 
   async getBusinessBySlug(slug: string): Promise<Business | null> {
-    const list = await this.readAll();
+    const list = await this.readAllBusinesses();
     const cleanSlug = slug.toLowerCase().trim();
     return list.find((b) => b.slug.toLowerCase() === cleanSlug) || null;
   }
 
   async getAllBusinesses(): Promise<Business[]> {
-    return this.readAll();
+    return this.readAllBusinesses();
   }
 
   async upsertBusiness(
     data: Omit<Business, "id" | "createdAt" | "updatedAt"> & { id?: string }
   ): Promise<Business> {
-    const list = await this.readAll();
+    const list = await this.readAllBusinesses();
     const now = new Date().toISOString();
 
     const existingIndex = data.id
@@ -144,7 +252,7 @@ export class JsonStorageAdapter implements StorageAdapter {
         updatedAt: now,
       };
       list[existingIndex] = updated;
-      await this.writeAtomic(list);
+      await this.writeBusinessesAtomic(list);
       return updated;
     } else {
       const created: Business = {
@@ -155,21 +263,17 @@ export class JsonStorageAdapter implements StorageAdapter {
         updatedAt: now,
       };
       list.push(created);
-      await this.writeAtomic(list);
+      await this.writeBusinessesAtomic(list);
       return created;
     }
   }
 
   async deleteBusiness(id: string): Promise<boolean> {
-    const list = await this.readAll();
+    const list = await this.readAllBusinesses();
     const filtered = list.filter((b) => b.id !== id);
-    if (filtered.length === list.length) {
-      return false;
-    }
-    if (this.useMemoryFallback) {
-      memoryStorage.delete(id);
-    }
-    await this.writeAtomic(filtered);
+    if (filtered.length === list.length) return false;
+    if (this.useMemoryFallback) memoryBusinesses.delete(id);
+    await this.writeBusinessesAtomic(filtered);
     return true;
   }
 }

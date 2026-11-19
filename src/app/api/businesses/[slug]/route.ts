@@ -15,18 +15,39 @@ export async function GET(
     const storage = getStorage();
     const business = await storage.getBusinessBySlug(slug);
 
-    if (!business) {
+    if (!business || !business.isActive) {
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
+
+    // Resolve category services
+    let services: string[] = business.customServices && business.customServices.length > 0
+      ? business.customServices
+      : [];
+
+    let categoryPlaceholder: Record<string, string> | undefined = undefined;
+
+    if (business.categoryId) {
+      const category = await storage.getCategoryById(business.categoryId);
+      if (category && category.isActive) {
+        if (services.length === 0) {
+          services = category.services;
+        }
+        categoryPlaceholder = category.placeholderText;
+      }
     }
 
     // Publicly return needed fields
     return NextResponse.json({
       name: business.name,
       slug: business.slug,
+      categoryId: business.categoryId,
+      categoryName: business.categoryName || "General Business",
       googleReviewUrl: business.googleReviewUrl,
       logoUrl: business.logoUrl,
       description: business.description,
       accentColor: business.accentColor || "#16a34a",
+      services,
+      placeholderText: categoryPlaceholder,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error fetching business";
