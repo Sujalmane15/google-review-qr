@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { AuthSession, UserRole } from "@/types";
 
 const COOKIE_NAME = "rmqr_admin_session";
 const SESSION_EXPIRY = "7d"; // 7 days
@@ -43,7 +44,6 @@ export async function verifyAdminPassword(inputPassword: string): Promise<boolea
   }
 
   if (isProduction && configuredPassword === "admin123") {
-    // Prevent insecure default password in production
     return false;
   }
 
@@ -52,15 +52,24 @@ export async function verifyAdminPassword(inputPassword: string): Promise<boolea
     return bcrypt.compare(inputPassword, configuredPassword);
   }
 
-  // Direct string comparison if plain text in dev
   return inputPassword === configuredPassword;
 }
 
 /**
- * Creates a signed JWT admin session token.
+ * Creates a signed JWT token for any session (admin or client).
  */
-export async function createAdminToken(): Promise<string> {
-  return new SignJWT({ role: "admin" })
+export async function createAuthToken(session: {
+  userId: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}): Promise<string> {
+  return new SignJWT({
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_EXPIRY)
@@ -68,45 +77,91 @@ export async function createAdminToken(): Promise<string> {
 }
 
 /**
- * Verifies a JWT admin session token.
+ * Verifies a JWT token and returns the parsed AuthSession or null.
  */
-export async function verifyAdminToken(token: string): Promise<boolean> {
+export async function verifyAuthToken(token: string): Promise<AuthSession | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    return payload.role === "admin";
+    if (!payload.role) return null;
+
+    return {
+      userId: (payload.userId as string) || "user-admin-default",
+      email: (payload.email as string) || (payload.role === "admin" ? "admin@rmsolution.com" : ""),
+      name: (payload.name as string) || (payload.role === "admin" ? "RMSolution Admin" : "Client User"),
+      role: (payload.role as UserRole) || "admin",
+      issuedAt: payload.iat || Math.floor(Date.now() / 1000),
+      expiresAt: payload.exp || Math.floor(Date.now() / 1000) + 7 * 86400,
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 
 /**
- * Checks if the current request has a valid admin session cookie.
- * Supports checking NextRequest directly or falling back to next/headers cookies().
+ * Creates a signed JWT admin session token (legacy compatibility).
  */
-export async function isAuthenticated(req?: NextRequest): Promise<boolean> {
+export async function createAdminToken(): Promise<string> {
+  return createAuthToken({
+    userId: "user-admin-default",
+    email: "admin@rmsolution.com",
+    name: "RMSolution Admin",
+    role: "admin",
+  });
+}
+
+/**
+ * Verifies a JWT admin session token (legacy compatibility).
+ */
+export async function verifyAdminToken(token: string): Promise<boolean> {
+  const session = await verifyAuthToken(token);
+  return session !== null && session.role === "admin";
+}
+
+/**
+ * Gets the current session from NextRequest or cookie store.
+ */
+export async function getSession(req?: NextRequest): Promise<AuthSession | null> {
   if (req) {
     const reqToken = req.cookies.get(COOKIE_NAME)?.value;
     if (reqToken) {
-      return verifyAdminToken(reqToken);
+      return verifyAuthToken(reqToken);
     }
   }
 
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
-    if (!token) return false;
-    return verifyAdminToken(token);
+    if (!token) return null;
+    return verifyAuthToken(token);
   } catch {
-    // When running in test environments without Next.js request scope
-    return false;
+    return null;
   }
 }
 
 /**
- * Sets the admin session cookie in a NextResponse.
+ * Checks if the current request is authenticated.
  */
-export async function setAdminSessionCookie(response: NextResponse): Promise<NextResponse> {
-  const token = await createAdminToken();
+export async function isAuthenticated(req?: NextRequest): Promise<boolean> {
+  const session = await getSession(req);
+  return session !== null;
+}
+
+/**
+ * Checks if current session has admin privileges.
+ */
+export async function isAdmin(req?: NextRequest): Promise<boolean> {
+  const session = await getSession(req);
+  return session !== null && session.role === "admin";
+}
+
+/**
+ * Sets the session cookie in a NextResponse.
+ */
+export async function setAuthCookie(
+  response: NextResponse,
+  session: { userId: string; email: string; name: string; role: UserRole }
+): Promise<NextResponse> {
+  const token = await createAuthToken(session);
   const isProduction = process.env.NODE_ENV === "production";
 
   response.cookies.set(COOKIE_NAME, token, {
@@ -121,7 +176,19 @@ export async function setAdminSessionCookie(response: NextResponse): Promise<Nex
 }
 
 /**
- * Clears the admin session cookie in a NextResponse.
+ * Sets the admin session cookie in a NextResponse (legacy compatibility).
+ */
+export async function setAdminSessionCookie(response: NextResponse): Promise<NextResponse> {
+  return setAuthCookie(response, {
+    userId: "user-admin-default",
+    email: "admin@rmsolution.com",
+    name: "RMSolution Admin",
+    role: "admin",
+  });
+}
+
+/**
+ * Clears the session cookie in a NextResponse.
  */
 export function clearAdminSessionCookie(response: NextResponse): NextResponse {
   response.cookies.set(COOKIE_NAME, "", {

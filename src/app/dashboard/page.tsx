@@ -14,50 +14,117 @@ import {
   RefreshCw,
   FolderTree,
   Trash2,
-  Eye,
-  EyeOff,
+  Shield,
+  User,
+  Users,
+  FileText,
+  ChevronRight,
+  ChevronLeft,
+  Sparkles,
   Layers,
+  Search,
+  Globe,
+  Tag,
+  Phone,
+  Mail,
+  MapPin,
 } from "lucide-react";
-import { Business, BusinessCategory } from "@/types";
+import {
+  Business,
+  ParentCategory,
+  Subcategory,
+  User as UserType,
+  BusinessAuditLog,
+  AuthSession,
+} from "@/types";
 import { QRCodeViewer } from "@/components/QRCodeViewer";
 import { getCanonicalPublicReviewUrl } from "@/lib/qr";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"businesses" | "categories">("businesses");
 
-  // Businesses State
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [categories, setCategories] = useState<BusinessCategory[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isEditingBusiness, setIsEditingBusiness] = useState(false);
+
+  // Active Navigation Tab
+  // Admin: "businesses" | "parents" | "subcategories" | "clients" | "audit"
+  // Client: "businesses"
+  const [activeTab, setActiveTab] = useState<
+    "businesses" | "parents" | "subcategories" | "clients" | "audit"
+  >("businesses");
+
+  // Core Data
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [clients, setClients] = useState<UserType[]>([]);
+  const [auditLogs, setAuditLogs] = useState<BusinessAuditLog[]>([]);
+
+  // Selected Business for Detail / QR View
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [businessSearchQuery, setBusinessSearchQuery] = useState("");
+
+  // ==========================================
+  // CLIENT 7-STEP BUSINESS WIZARD STATE
+  // ==========================================
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<number>(1);
+  const [isEditingExisting, setIsEditingExisting] = useState(false);
+
+  // Wizard fields
+  const [bizId, setBizId] = useState<string | undefined>(undefined);
+  const [bizName, setBizName] = useState("");
+  const [bizSlug, setBizSlug] = useState("");
+  const [bizParentId, setBizParentId] = useState("");
+  const [bizSubId, setBizSubId] = useState("");
+  const [bizDescription, setBizDescription] = useState("");
+  const [bizLogoUrl, setBizLogoUrl] = useState("");
+  const [bizAccentColor, setBizAccentColor] = useState("#16a34a");
+  const [bizGoogleReviewUrl, setBizGoogleReviewUrl] = useState("");
+  const [bizContactEmail, setBizContactEmail] = useState("");
+  const [bizContactPhone, setBizContactPhone] = useState("");
+  const [bizAddress, setBizAddress] = useState("");
+  const [bizCustomServices, setBizCustomServices] = useState("");
+  const [bizIsActive, setBizIsActive] = useState(true);
+
+  const [savingBusiness, setSavingBusiness] = useState(false);
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [businessSuccess, setBusinessSuccess] = useState<string | null>(null);
-  const [savingBusiness, setSavingBusiness] = useState(false);
 
-  // Business Form State
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [googleReviewUrl, setGoogleReviewUrl] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [accentColor, setAccentColor] = useState("#16a34a");
-  const [customServices, setCustomServices] = useState("");
-  const [isBusinessActive, setIsBusinessActive] = useState(true);
+  // ==========================================
+  // DELETE CONFIRMATION MODAL STATE
+  // ==========================================
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [businessToDelete, setBusinessToDelete] = useState<Business | null>(null);
+  const [deletingBusiness, setDeletingBusiness] = useState(false);
 
-  // Category Form State
-  const [isEditingCategory, setIsEditingCategory] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<BusinessCategory | null>(null);
-  const [catName, setCatName] = useState("");
-  const [catSlug, setCatSlug] = useState("");
-  const [catDescription, setCatDescription] = useState("");
-  const [catServices, setCatServices] = useState("");
-  const [catIsActive, setCatIsActive] = useState(true);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [categorySuccess, setCategorySuccess] = useState<string | null>(null);
-  const [savingCategory, setSavingCategory] = useState(false);
+  // ==========================================
+  // ADMIN PARENT CATEGORY FORM STATE
+  // ==========================================
+  const [isParentModalOpen, setIsParentModalOpen] = useState(false);
+  const [editParentId, setEditParentId] = useState<string | undefined>(undefined);
+  const [parentName, setParentName] = useState("");
+  const [parentSlug, setParentSlug] = useState("");
+  const [parentIcon, setParentIcon] = useState("Folder");
+  const [parentDesc, setParentDesc] = useState("");
+  const [parentOrder, setParentOrder] = useState(1);
+  const [parentIsActive, setParentIsActive] = useState(true);
+  const [parentError, setParentError] = useState<string | null>(null);
+
+  // ==========================================
+  // ADMIN SUBCATEGORY FORM STATE
+  // ==========================================
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [editSubId, setEditSubId] = useState<string | undefined>(undefined);
+  const [subParentId, setSubParentId] = useState("");
+  const [subName, setSubName] = useState("");
+  const [subSlug, setSubSlug] = useState("");
+  const [subDesc, setSubDesc] = useState("");
+  const [subServices, setSubServices] = useState("");
+  const [subOrder, setSubOrder] = useState(1);
+  const [subIsActive, setSubIsActive] = useState(true);
+  const [subError, setSubError] = useState<string | null>(null);
 
   const [origin, setOrigin] = useState<string>("");
 
@@ -67,30 +134,54 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Fetch initial session & all data
   const fetchData = async () => {
     try {
-      const [bizRes, catRes] = await Promise.all([
-        fetch("/api/businesses"),
-        fetch("/api/categories"),
-      ]);
-
-      if (bizRes.status === 401 || catRes.status === 401) {
+      // 1. Check Auth Session
+      const meRes = await fetch("/api/auth/me");
+      if (meRes.status === 401) {
         router.push("/login");
         return;
       }
+      const meData = await meRes.json();
+      setCurrentUser(meData.user);
 
-      if (bizRes.ok && catRes.ok) {
+      // 2. Fetch Core Data
+      const [bizRes, parentRes, subRes] = await Promise.all([
+        fetch("/api/businesses"),
+        fetch("/api/categories/parents"),
+        fetch("/api/categories/subcategories"),
+      ]);
+
+      if (bizRes.ok) {
         const bizData: Business[] = await bizRes.json();
-        const catData: BusinessCategory[] = await catRes.json();
         setBusinesses(bizData);
-        setCategories(catData);
-
         if (bizData.length > 0 && !selectedBusiness) {
           setSelectedBusiness(bizData[0]);
         }
       }
+
+      if (parentRes.ok) {
+        const pData: ParentCategory[] = await parentRes.json();
+        setParentCategories(pData);
+      }
+
+      if (subRes.ok) {
+        const sData: Subcategory[] = await subRes.json();
+        setSubcategories(sData);
+      }
+
+      // If Admin, also load Clients and Audit Logs
+      if (meData.user?.role === "admin") {
+        const [clientsRes, auditRes] = await Promise.all([
+          fetch("/api/admin/clients"),
+          fetch("/api/admin/audit-logs"),
+        ]);
+        if (clientsRes.ok) setClients(await clientsRes.json());
+        if (auditRes.ok) setAuditLogs(await auditRes.json());
+      }
     } catch (err) {
-      console.error("Failed to load dashboard data:", err);
+      console.error("Dashboard data load error:", err);
     } finally {
       setLoading(false);
     }
@@ -101,75 +192,117 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Business Form Handlers ---
-  const handleStartNewBusiness = () => {
-    setName("");
-    setSlug("");
-    setCategoryId(categories[0]?.id || "");
-    setGoogleReviewUrl("");
-    setLogoUrl("");
-    setDescription("");
-    setAccentColor("#16a34a");
-    setCustomServices("");
-    setIsBusinessActive(true);
-    setIsEditingBusiness(true);
+  // Logout Handler
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  };
+
+  // ==========================================
+  // WIZARD HANDLERS
+  // ==========================================
+  const handleStartNewBusinessWizard = () => {
+    setBizId(undefined);
+    setBizName("");
+    setBizSlug("");
+    const defaultParent = parentCategories[0]?.id || "";
+    setBizParentId(defaultParent);
+    const availableSubs = subcategories.filter((s) => s.parentId === defaultParent);
+    setBizSubId(availableSubs[0]?.id || "");
+    setBizDescription("");
+    setBizLogoUrl("");
+    setBizAccentColor("#16a34a");
+    setBizGoogleReviewUrl("");
+    setBizContactEmail("");
+    setBizContactPhone("");
+    setBizAddress("");
+    setBizCustomServices("");
+    setBizIsActive(true);
+    setIsEditingExisting(false);
+    setWizardStep(1);
     setBusinessError(null);
     setBusinessSuccess(null);
+    setIsWizardOpen(true);
   };
 
   const handleStartEditBusiness = (b: Business) => {
-    setName(b.name);
-    setSlug(b.slug);
-    setCategoryId(b.categoryId || "");
-    setGoogleReviewUrl(b.googleReviewUrl);
-    setLogoUrl(b.logoUrl || "");
-    setDescription(b.description || "");
-    setAccentColor(b.accentColor || "#16a34a");
-    setCustomServices(b.customServices ? b.customServices.join(", ") : "");
-    setIsBusinessActive(b.isActive ?? true);
-    setIsEditingBusiness(true);
+    setBizId(b.id);
+    setBizName(b.name);
+    setBizSlug(b.slug);
+    setBizParentId(b.parentCategoryId || parentCategories[0]?.id || "");
+    setBizSubId(b.subcategoryId || b.categoryId || "");
+    setBizDescription(b.description || "");
+    setBizLogoUrl(b.logoUrl || "");
+    setBizAccentColor(b.accentColor || "#16a34a");
+    setBizGoogleReviewUrl(b.googleReviewUrl);
+    setBizContactEmail(b.contactEmail || "");
+    setBizContactPhone(b.contactPhone || "");
+    setBizAddress(b.address || "");
+    setBizCustomServices(b.customServices ? b.customServices.join(", ") : "");
+    setBizIsActive(b.isActive ?? true);
+    setIsEditingExisting(true);
+    setWizardStep(1);
     setBusinessError(null);
     setBusinessSuccess(null);
+    setIsWizardOpen(true);
   };
 
-  const handleSlugify = (val: string) => {
-    setName(val);
-    if (!selectedBusiness || !isEditingBusiness) {
-      const generatedSlug = val
+  const handleSlugify = (nameVal: string) => {
+    setBizName(nameVal);
+    if (!isEditingExisting) {
+      const generatedSlug = nameVal
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
-      setSlug(generatedSlug);
+      setBizSlug(generatedSlug);
     }
   };
 
-  const handleSaveBusiness = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleParentCategoryChange = (parentId: string) => {
+    setBizParentId(parentId);
+    const matchingSubs = subcategories.filter((s) => s.parentId === parentId);
+    if (matchingSubs.length > 0) {
+      setBizSubId(matchingSubs[0].id);
+    } else {
+      setBizSubId("");
+    }
+  };
+
+  const handleSaveBusinessProfile = async () => {
     setBusinessError(null);
     setBusinessSuccess(null);
     setSavingBusiness(true);
 
     try {
-      const selectedCat = categories.find((c) => c.id === categoryId);
-      const parsedServices = customServices
-        ? customServices
+      const selectedParent = parentCategories.find((p) => p.id === bizParentId);
+      const selectedSub = subcategories.find((s) => s.id === bizSubId);
+
+      const parsedServices = bizCustomServices
+        ? bizCustomServices
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean)
         : [];
 
       const payload = {
-        id: isEditingBusiness && selectedBusiness && name === selectedBusiness.name ? selectedBusiness.id : undefined,
-        name,
-        slug,
-        categoryId: categoryId || undefined,
-        categoryName: selectedCat ? selectedCat.name : undefined,
-        googleReviewUrl,
-        logoUrl: logoUrl.trim() || undefined,
-        description: description.trim() || undefined,
-        accentColor: accentColor.trim() || "#16a34a",
+        id: bizId,
+        name: bizName.trim(),
+        slug: bizSlug.trim(),
+        parentCategoryId: bizParentId || undefined,
+        parentCategoryName: selectedParent?.name,
+        subcategoryId: bizSubId || undefined,
+        subcategoryName: selectedSub?.name,
+        categoryId: bizSubId || undefined,
+        categoryName: selectedSub?.name,
+        googleReviewUrl: bizGoogleReviewUrl.trim(),
+        logoUrl: bizLogoUrl.trim() || undefined,
+        description: bizDescription.trim() || undefined,
+        accentColor: bizAccentColor.trim() || "#16a34a",
         customServices: parsedServices,
-        isActive: isBusinessActive,
+        isActive: bizIsActive,
+        contactEmail: bizContactEmail.trim() || undefined,
+        contactPhone: bizContactPhone.trim() || undefined,
+        address: bizAddress.trim() || undefined,
       };
 
       const res = await fetch("/api/businesses", {
@@ -194,102 +327,202 @@ export default function DashboardPage() {
         return;
       }
 
-      setBusinessSuccess("Business saved successfully!");
+      setBusinessSuccess("Business saved and published successfully!");
       await fetchData();
       setSelectedBusiness(data);
-      setIsEditingBusiness(false);
+      setIsWizardOpen(false);
     } catch {
-      setBusinessError("Network error while saving.");
+      setBusinessError("Network error while saving business.");
     } finally {
       setSavingBusiness(false);
     }
   };
 
-  // --- Category Form Handlers ---
-  const handleStartNewCategory = () => {
-    setCatName("");
-    setCatSlug("");
-    setCatDescription("");
-    setCatServices("Service 1, Service 2, Service 3");
-    setCatIsActive(true);
-    setSelectedCategory(null);
-    setIsEditingCategory(true);
-    setCategoryError(null);
-    setCategorySuccess(null);
+  // Delete Business Action
+  const confirmDeleteBusiness = (b: Business) => {
+    setBusinessToDelete(b);
+    setDeleteModalOpen(true);
   };
 
-  const handleStartEditCategory = (c: BusinessCategory) => {
-    setSelectedCategory(c);
-    setCatName(c.name);
-    setCatSlug(c.slug);
-    setCatDescription(c.description || "");
-    setCatServices(c.services.join(", "));
-    setCatIsActive(c.isActive);
-    setIsEditingCategory(true);
-    setCategoryError(null);
-    setCategorySuccess(null);
-  };
-
-  const handleSaveCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCategoryError(null);
-    setCategorySuccess(null);
-    setSavingCategory(true);
-
+  const handleExecuteDeleteBusiness = async () => {
+    if (!businessToDelete) return;
+    setDeletingBusiness(true);
     try {
-      const parsedServices = catServices
+      const res = await fetch(`/api/businesses/${businessToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete business");
+        setDeletingBusiness(false);
+        return;
+      }
+
+      setDeleteModalOpen(false);
+      setBusinessToDelete(null);
+      await fetchData();
+      if (selectedBusiness?.id === businessToDelete.id) {
+        setSelectedBusiness(businesses[0] || null);
+      }
+    } catch {
+      alert("Network error while deleting business");
+    } finally {
+      setDeletingBusiness(false);
+    }
+  };
+
+  // ==========================================
+  // ADMIN PARENT CATEGORY HANDLERS
+  // ==========================================
+  const handleOpenNewParentModal = () => {
+    setEditParentId(undefined);
+    setParentName("");
+    setParentSlug("");
+    setParentDesc("");
+    setParentIcon("Folder");
+    setParentOrder(parentCategories.length + 1);
+    setParentIsActive(true);
+    setParentError(null);
+    setIsParentModalOpen(true);
+  };
+
+  const handleOpenEditParentModal = (p: ParentCategory) => {
+    setEditParentId(p.id);
+    setParentName(p.name);
+    setParentSlug(p.slug);
+    setParentDesc(p.description || "");
+    setParentIcon(p.icon || "Folder");
+    setParentOrder(p.displayOrder || 1);
+    setParentIsActive(p.isActive);
+    setParentError(null);
+    setIsParentModalOpen(true);
+  };
+
+  const handleSaveParentCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setParentError(null);
+    try {
+      const res = await fetch("/api/categories/parents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editParentId,
+          name: parentName,
+          slug: parentSlug,
+          description: parentDesc.trim() || undefined,
+          icon: parentIcon,
+          displayOrder: Number(parentOrder),
+          isActive: parentIsActive,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setParentError(data.error || "Failed to save parent category");
+        return;
+      }
+
+      setIsParentModalOpen(false);
+      await fetchData();
+    } catch {
+      setParentError("Network error while saving parent category.");
+    }
+  };
+
+  const handleDeleteParentCategory = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this parent category?")) return;
+    try {
+      const res = await fetch(`/api/categories/parents/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete parent category");
+        return;
+      }
+      await fetchData();
+    } catch {
+      alert("Network error while deleting category");
+    }
+  };
+
+  // ==========================================
+  // ADMIN SUBCATEGORY HANDLERS
+  // ==========================================
+  const handleOpenNewSubModal = () => {
+    setEditSubId(undefined);
+    setSubParentId(parentCategories[0]?.id || "");
+    setSubName("");
+    setSubSlug("");
+    setSubDesc("");
+    setSubServices("Quality, Service, Support");
+    setSubOrder(subcategories.length + 1);
+    setSubIsActive(true);
+    setSubError(null);
+    setIsSubModalOpen(true);
+  };
+
+  const handleOpenEditSubModal = (s: Subcategory) => {
+    setEditSubId(s.id);
+    setSubParentId(s.parentId);
+    setSubName(s.name);
+    setSubSlug(s.slug);
+    setSubDesc(s.description || "");
+    setSubServices(s.services.join(", "));
+    setSubOrder(s.displayOrder || 1);
+    setSubIsActive(s.isActive);
+    setSubError(null);
+    setIsSubModalOpen(true);
+  };
+
+  const handleSaveSubcategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubError(null);
+    try {
+      const parsedServices = subServices
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
 
-      const payload = {
-        id: selectedCategory?.id,
-        name: catName,
-        slug: catSlug,
-        description: catDescription.trim() || undefined,
-        isActive: catIsActive,
-        services: parsedServices,
-      };
-
-      const res = await fetch("/api/categories", {
+      const res = await fetch("/api/categories/subcategories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          id: editSubId,
+          parentId: subParentId,
+          name: subName,
+          slug: subSlug,
+          description: subDesc.trim() || undefined,
+          services: parsedServices,
+          displayOrder: Number(subOrder),
+          isActive: subIsActive,
+        }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        setCategoryError(data.error || "Failed to save category");
-        setSavingCategory(false);
+        setSubError(data.error || "Failed to save subcategory");
         return;
       }
 
-      setCategorySuccess("Category updated successfully! Public review pages now use these services.");
+      setIsSubModalOpen(false);
       await fetchData();
-      setIsEditingCategory(false);
     } catch {
-      setCategoryError("Network error while saving category.");
-    } finally {
-      setSavingCategory(false);
+      setSubError("Network error while saving subcategory.");
     }
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+  const handleDeleteSubcategory = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this subcategory?")) return;
     try {
-      const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        await fetchData();
+      const res = await fetch(`/api/categories/subcategories/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete subcategory");
+        return;
       }
-    } catch (err) {
-      console.error(err);
+      await fetchData();
+    } catch {
+      alert("Network error while deleting subcategory");
     }
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
   };
 
   if (loading) {
@@ -301,606 +534,1272 @@ export default function DashboardPage() {
     );
   }
 
-  const appBaseUrl =
-    origin && !origin.includes("localhost")
-      ? origin
-      : process.env.NEXT_PUBLIC_APP_URL || origin || undefined;
-
-  const qrInfo = selectedBusiness
-    ? getCanonicalPublicReviewUrl(selectedBusiness.slug, appBaseUrl)
-    : null;
+  const isAdmin = currentUser?.role === "admin";
+  const filteredBusinesses = businesses.filter((b) =>
+    b.name.toLowerCase().includes(businessSearchQuery.toLowerCase()) ||
+    b.slug.toLowerCase().includes(businessSearchQuery.toLowerCase()) ||
+    (b.parentCategoryName && b.parentCategoryName.toLowerCase().includes(businessSearchQuery.toLowerCase())) ||
+    (b.subcategoryName && b.subcategoryName.toLowerCase().includes(businessSearchQuery.toLowerCase()))
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Top Navbar */}
+    <div className="min-h-screen bg-slate-50">
+      {/* ======================================================== */}
+      {/* TOP NAVIGATION BAR */}
+      {/* ======================================================== */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
-              <QrCode className="w-5 h-5 text-emerald-400" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Brand Logo & Role Badge */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-sm">
+                <QrCode className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-bold text-slate-900 leading-none">
+                    RMQR Multi-Industry Platform
+                  </h1>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                      isAdmin
+                        ? "bg-purple-100 text-purple-700 border border-purple-200"
+                        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                    }`}
+                  >
+                    {isAdmin ? "Admin Master" : "Client Account"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Logged in as: <span className="font-semibold text-slate-700">{currentUser?.name}</span> ({currentUser?.email})
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-slate-900 text-base sm:text-lg leading-tight">
-                RMSolution Universal Platform
-              </h1>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
-                Multi-Industry Google Review QR & AI Suggestion System
-              </p>
+
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleStartNewBusinessWizard}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition shadow-sm active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                Add Business
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-600 hover:text-slate-900 rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Navigation Tabs */}
+          <div className="flex gap-2 overflow-x-auto py-2 border-t border-slate-100 text-xs font-medium">
             <button
-              onClick={() => {
-                setActiveTab("businesses");
-                handleStartNewBusiness();
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition active:scale-95 shadow-sm"
+              onClick={() => setActiveTab("businesses")}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                activeTab === "businesses"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              Add Business
+              <Building2 className="w-3.5 h-3.5" />
+              {isAdmin ? `All Businesses (${businesses.length})` : `My Businesses (${businesses.length})`}
             </button>
-            <button
-              onClick={() => {
-                setActiveTab("categories");
-                handleStartNewCategory();
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-800 text-xs font-semibold rounded-lg hover:bg-slate-200 transition active:scale-95 border border-slate-200"
-            >
-              <FolderTree className="w-4 h-4 text-emerald-600" />
-              Add Category
-            </button>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 transition active:scale-95"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
-          </div>
-        </div>
 
-        {/* Tab Selector */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-4 border-t border-slate-100">
-          <button
-            onClick={() => setActiveTab("businesses")}
-            className={`py-2.5 text-xs font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === "businesses"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            Businesses ({businesses.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("categories")}
-            className={`py-2.5 text-xs font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === "categories"
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Universal Categories & Services ({categories.length})
-          </button>
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab("parents")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    activeTab === "parents"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <FolderTree className="w-3.5 h-3.5" />
+                  Parent Categories ({parentCategories.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("subcategories")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    activeTab === "subcategories"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  Subcategories ({subcategories.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("clients")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    activeTab === "clients"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Client Accounts ({clients.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("audit")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    activeTab === "audit"
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Audit Logs ({auditLogs.length})
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main Content Layout */}
-      <main className="max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
-        {activeTab === "businesses" ? (
-          <>
-            {/* Left Sidebar: Business List */}
-            <section className="lg:col-span-4 flex flex-col gap-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Registered Businesses ({businesses.length})
-              </h2>
-
-              <div className="flex flex-col gap-2">
-                {businesses.map((b) => {
-                  const isSelected = selectedBusiness?.id === b.id;
-                  return (
-                    <div
-                      key={b.id}
-                      onClick={() => {
-                        setSelectedBusiness(b);
-                        setIsEditingBusiness(false);
-                      }}
-                      className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-emerald-500 bg-white shadow-sm ring-1 ring-emerald-500"
-                          : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
-                            style={{ backgroundColor: b.accentColor || "#16a34a" }}
-                          >
-                            {b.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-slate-900 text-sm leading-tight">{b.name}</h3>
-                            <p className="text-[11px] text-emerald-600 font-medium">{b.categoryName || "General Business"}</p>
-                            <p className="text-[11px] text-slate-400 font-mono">/r/{b.slug}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartEditBusiness(b);
-                          }}
-                          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Right Main Area */}
-            <section className="lg:col-span-8 flex flex-col gap-6">
-              {isEditingBusiness ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <h2 className="text-lg font-bold text-slate-900 mb-1">
-                    {selectedBusiness && name === selectedBusiness.name ? "Edit Business" : "Add New Business"}
+      {/* ======================================================== */}
+      {/* MAIN CONTAINER */}
+      {/* ======================================================== */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* ========================================== */}
+        {/* TAB 1: BUSINESSES VIEW */}
+        {/* ========================================== */}
+        {activeTab === "businesses" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Business Directory & Search */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-slate-800">
+                    {isAdmin ? "Universal Business Directory" : "Your Businesses"}
                   </h2>
-                  <p className="text-xs text-slate-500 mb-6">
-                    Assign your industry category and custom services. No food defaults will appear for IT or non-restaurant businesses.
-                  </p>
+                  <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
+                    {filteredBusinesses.length} total
+                  </span>
+                </div>
 
-                  {businessError && (
-                    <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
-                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                      <span>{businessError}</span>
-                    </div>
-                  )}
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={businessSearchQuery}
+                    onChange={(e) => setBusinessSearchQuery(e.target.value)}
+                    placeholder="Search by name, slug or industry..."
+                    className="w-full px-3.5 py-2 pl-9 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                </div>
+              </div>
 
-                  {businessSuccess && (
-                    <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{businessSuccess}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSaveBusiness} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                          Business Name *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={name}
-                          onChange={(e) => handleSlugify(e.target.value)}
-                          placeholder="RMSolution Tech"
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                          Public URL Slug *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={slug}
-                          onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                          placeholder="rmsolution-tech"
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Universal Category Selector */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Business Category / Industry *
-                      </label>
-                      <select
-                        value={categoryId}
-                        onChange={(e) => setCategoryId(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+              {/* Business List */}
+              <div className="space-y-2">
+                {filteredBusinesses.length === 0 ? (
+                  <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
+                    No businesses found. Click &ldquo;Add Business&rdquo; to create your first profile.
+                  </div>
+                ) : (
+                  filteredBusinesses.map((b) => {
+                    const isSelected = selectedBusiness?.id === b.id;
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => setSelectedBusiness(b)}
+                        className={`p-4 rounded-2xl border transition cursor-pointer text-left ${
+                          isSelected
+                            ? "bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20"
+                            : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                        }`}
                       >
-                        <option value="">-- Select Industry --</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name} {!cat.isActive ? "(Inactive)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Determines the customer experience tags (e.g. IT shows Web/App Development, Hospital shows Healthcare).
-                      </p>
-                    </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0"
+                              style={{ backgroundColor: b.accentColor || "#16a34a" }}
+                            >
+                              {b.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                                {b.name}
+                              </h3>
+                              <p className="text-xs font-mono text-slate-500 mt-0.5">
+                                /r/{b.slug}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                {b.parentCategoryName && (
+                                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">
+                                    {b.parentCategoryName}
+                                  </span>
+                                )}
+                                {b.subcategoryName && (
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-medium">
+                                    {b.subcategoryName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Custom Services / Tags (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={customServices}
-                        onChange={(e) => setCustomServices(e.target.value)}
-                        placeholder="Web Development, App Development, UI/UX Design, Timely Delivery, Support"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                      />
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Comma-separated tags to display for this business. Overrides category default if specified.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Google Review URL *
-                      </label>
-                      <input
-                        type="url"
-                        required
-                        value={googleReviewUrl}
-                        onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                        placeholder="https://g.page/r/YOUR_ID/review..."
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                          Logo Image URL (Optional)
-                        </label>
-                        <input
-                          type="url"
-                          value={logoUrl}
-                          onChange={(e) => setLogoUrl(e.target.value)}
-                          placeholder="https://example.com/logo.png"
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                          Brand Accent Color
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                            className="w-10 h-10 p-0.5 rounded-lg border border-slate-200 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                          />
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditBusiness(b)}
+                              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+                              title="Edit Business"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => confirmDeleteBusiness(b)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Delete Business"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Short Description (Optional)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Website, App & Software Development services."
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            {/* Right Column: Selected Business Detail & QR Hub */}
+            <div className="lg:col-span-7">
+              {selectedBusiness ? (
+                <div className="space-y-6">
+                  {/* Public Review QR Viewer */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+                      <div>
+                        <h2 className="text-base font-bold text-slate-900">
+                          {selectedBusiness.name}
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Assigned to: <strong className="text-slate-700">{selectedBusiness.parentCategoryName || "Hospitality"} &gt; {selectedBusiness.subcategoryName || selectedBusiness.categoryName || "General Business"}</strong>
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setIsEditingBusiness(false)}
-                        className="px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition"
+                        onClick={() => handleStartEditBusiness(selectedBusiness)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition"
                       >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={savingBusiness}
-                        className="px-5 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition active:scale-95 disabled:opacity-50"
-                      >
-                        {savingBusiness ? "Saving..." : "Save Business Profile"}
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Edit Profile
                       </button>
                     </div>
-                  </form>
-                </div>
-              ) : selectedBusiness && qrInfo ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <QRCodeViewer
-                    businessName={selectedBusiness.name}
-                    slug={selectedBusiness.slug}
-                    publicUrl={qrInfo.url}
-                    isLocalhost={qrInfo.isLocalhost}
-                    warning={qrInfo.warning}
-                    isReadyForProduction={qrInfo.isReadyForProduction}
-                  />
 
-                  {/* Business Overview Card */}
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Profile Details
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditBusiness(selectedBusiness)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          Edit Details
-                        </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                      <div className="flex flex-col items-center">
+                        {(() => {
+                          const qrResult = getCanonicalPublicReviewUrl(selectedBusiness.slug, origin);
+                          return (
+                            <QRCodeViewer
+                              businessName={selectedBusiness.name}
+                              slug={selectedBusiness.slug}
+                              publicUrl={qrResult.url}
+                              isLocalhost={qrResult.isLocalhost}
+                              warning={qrResult.warning}
+                              isReadyForProduction={qrResult.isReadyForProduction}
+                            />
+                          );
+                        })()}
                       </div>
 
-                      <h3 className="text-xl font-bold text-slate-900 mb-1">
-                        {selectedBusiness.name}
-                      </h3>
-                      <p className="text-xs font-medium text-emerald-600 mb-3">
-                        {selectedBusiness.categoryName || "Universal Business"}
-                      </p>
+                      <div className="space-y-4 text-xs">
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                          <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+                            Public Review URL
+                          </span>
+                          <a
+                            href={`/r/${selectedBusiness.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block font-mono text-emerald-700 break-all hover:underline"
+                          >
+                            {getCanonicalPublicReviewUrl(selectedBusiness.slug, origin).url}
+                          </a>
+                        </div>
 
-                      {selectedBusiness.description && (
-                        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4">
-                          {selectedBusiness.description}
-                        </p>
-                      )}
-
-                      <div className="space-y-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
-                        <div>
-                          <span className="block font-medium text-slate-400 mb-0.5">Google Review Destination:</span>
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                          <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+                            Google Review Destination
+                          </span>
                           <a
                             href={selectedBusiness.googleReviewUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-emerald-600 hover:underline break-all inline-flex items-center gap-1 font-mono"
+                            className="block font-mono text-slate-700 break-all hover:underline"
                           >
                             {selectedBusiness.googleReviewUrl}
-                            <ExternalLink className="w-3 h-3 shrink-0" />
                           </a>
                         </div>
-                        <div>
-                          <span className="block font-medium text-slate-400 mb-0.5">Custom Services / Tags:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {selectedBusiness.customServices && selectedBusiness.customServices.length > 0 ? (
-                              selectedBusiness.customServices.map((s) => (
-                                <span key={s} className="px-2 py-0.5 bg-slate-100 rounded text-[11px] text-slate-700">
-                                  {s}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-slate-400 text-[11px]">Using category defaults</span>
-                            )}
+
+                        {selectedBusiness.description && (
+                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                            <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+                              Description
+                            </span>
+                            <p className="text-slate-700 leading-relaxed">
+                              {selectedBusiness.description}
+                            </p>
                           </div>
+                        )}
+
+                        <div className="pt-2">
+                          <a
+                            href={`/r/${selectedBusiness.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition shadow-sm text-xs"
+                          >
+                            <span>Open Live Customer Review Page</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                         </div>
                       </div>
                     </div>
-
-                    <div className="pt-6 border-t border-slate-100 mt-6">
-                      <a
-                        href={qrInfo.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-900 text-white font-medium text-xs rounded-xl hover:bg-slate-800 transition active:scale-95"
-                      >
-                        Open Live Customer Review Page
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
                   </div>
                 </div>
-              ) : null}
-            </section>
-          </>
-        ) : (
-          /* Universal Categories Management Tab */
-          <section className="lg:col-span-12 flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+              ) : (
+                <div className="p-12 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
+                  Select a business on the left to preview QR code and details.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 2: ADMIN PARENT CATEGORIES */}
+        {/* ========================================== */}
+        {isAdmin && activeTab === "parents" && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Universal Business Categories</h2>
-                <p className="text-xs text-slate-500">
-                  Manage industries, activate/deactivate categories, and customize industry service tags without code changes.
+                <h2 className="text-base font-bold text-slate-900">
+                  Universal Parent Categories
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Top-level industry sectors (Hospitality, Healthcare, Technology, Retail, Education, etc.).
                 </p>
               </div>
               <button
-                onClick={handleStartNewCategory}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl hover:bg-emerald-700 transition"
+                type="button"
+                onClick={handleOpenNewParentModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition"
               >
                 <Plus className="w-4 h-4" />
-                Add Category
+                Add Parent Category
               </button>
             </div>
 
-            {isEditingCategory ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm max-w-2xl">
-                <h3 className="text-base font-bold text-slate-900 mb-4">
-                  {selectedCategory ? "Edit Category" : "Add New Category"}
-                </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {parentCategories.map((p) => {
+                const subCount = subcategories.filter((s) => s.parentId === p.id).length;
+                const bizCount = businesses.filter((b) => b.parentCategoryId === p.id).length;
 
-                {categoryError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>{categoryError}</span>
-                  </div>
-                )}
-                {categorySuccess && (
-                  <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{categorySuccess}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleSaveCategory} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Category Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={catName}
-                        onChange={(e) => {
-                          setCatName(e.target.value);
-                          if (!selectedCategory) {
-                            setCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
-                          }
-                        }}
-                        placeholder="e.g. Hotel & Hospitality"
-                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                        Slug *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={catSlug}
-                        onChange={(e) => setCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                        placeholder="hotel-hospitality"
-                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Services / Experience Tags (Comma-separated) *
-                    </label>
-                    <textarea
-                      rows={2}
-                      required
-                      value={catServices}
-                      onChange={(e) => setCatServices(e.target.value)}
-                      placeholder="Room Cleanliness, Guest Hospitality, Check-in Experience, Amenities, Staff Helpfulness"
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                    />
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      These tags will automatically appear on customer review pages for businesses in this category.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={catDescription}
-                      onChange={(e) => setCatDescription(e.target.value)}
-                      placeholder="Resorts, hotels, boutique stays..."
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="catIsActive"
-                      checked={catIsActive}
-                      onChange={(e) => setCatIsActive(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <label htmlFor="catIsActive" className="text-xs font-medium text-slate-700">
-                      Active (visible to visitors and available in business selection)
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingCategory(false)}
-                      className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingCategory}
-                      className="px-5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 disabled:opacity-50"
-                    >
-                      {savingCategory ? "Saving..." : "Save Category"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((c) => (
+                return (
                   <div
-                    key={c.id}
-                    className={`bg-white rounded-2xl border p-5 shadow-sm flex flex-col justify-between ${
-                      c.isActive ? "border-slate-200" : "border-slate-200/50 bg-slate-50/50 opacity-60"
-                    }`}
+                    key={p.id}
+                    className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          c.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {c.isActive ? "Active" : "Deactivated"}
+                        <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                          Order: {p.displayOrder || 1}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleStartEditCategory(c)}
-                            className="p-1 text-slate-400 hover:text-slate-700"
-                            title="Edit Category"
+                            type="button"
+                            onClick={() => handleOpenEditParentModal(p)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100"
+                            title="Edit"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteCategory(c.id)}
-                            className="p-1 text-slate-400 hover:text-red-600"
-                            title="Delete Category"
+                            type="button"
+                            onClick={() => handleDeleteParentCategory(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                            title="Delete"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
 
-                      <h3 className="font-bold text-slate-900 text-sm mb-1">{c.name}</h3>
-                      {c.description && (
-                        <p className="text-xs text-slate-500 mb-3 leading-relaxed">{c.description}</p>
+                      <h3 className="text-sm font-bold text-slate-900 mb-1">{p.name}</h3>
+                      <p className="text-xs font-mono text-slate-400 mb-2">slug: {p.slug}</p>
+                      {p.description && (
+                        <p className="text-xs text-slate-500 mb-3">{p.description}</p>
                       )}
+                    </div>
 
-                      <div className="pt-2 border-t border-slate-100">
-                        <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-1.5">
-                          Service Tags ({c.services.length}):
-                        </span>
-                        <div className="flex flex-wrap gap-1">
-                          {c.services.slice(0, 5).map((s) => (
-                            <span key={s} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-700">
-                              {s}
-                            </span>
-                          ))}
-                          {c.services.length > 5 && (
-                            <span className="text-[10px] text-slate-400">+{c.services.length - 5} more</span>
-                          )}
-                        </div>
-                      </div>
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <span>{subCount} Subcategories</span>
+                      <span className="font-semibold text-emerald-700">{bizCount} Businesses</span>
                     </div>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 3: ADMIN SUBCATEGORIES */}
+        {/* ========================================== */}
+        {isAdmin && activeTab === "subcategories" && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Subcategories &amp; Dynamic Services
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Specific business types under each parent industry with assigned review services.
+                </p>
               </div>
-            )}
-          </section>
+              <button
+                type="button"
+                onClick={handleOpenNewSubModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition"
+              >
+                <Plus className="w-4 h-4" />
+                Add Subcategory
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {subcategories.map((s) => {
+                const parent = parentCategories.find((p) => p.id === s.parentId);
+                const bizCount = businesses.filter((b) => b.subcategoryId === s.id || b.categoryId === s.id).length;
+
+                return (
+                  <div
+                    key={s.id}
+                    className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded-full">
+                          {parent?.name || "Unassigned Parent"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditSubModal(s)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSubcategory(s.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h3 className="text-sm font-bold text-slate-900 mb-1">{s.name}</h3>
+                      <p className="text-xs font-mono text-slate-400 mb-2">slug: {s.slug}</p>
+                      {s.description && (
+                        <p className="text-xs text-slate-500 mb-2">{s.description}</p>
+                      )}
+
+                      {/* Services Pills */}
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {s.services.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <span>{s.services.length} Service tags</span>
+                      <span className="font-semibold text-emerald-700">{bizCount} Businesses</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 4: ADMIN CLIENT ACCOUNTS */}
+        {/* ========================================== */}
+        {isAdmin && activeTab === "clients" && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Registered Client Accounts
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Clients who manage their own business profiles.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Client Name</th>
+                    <th className="px-4 py-3">Email Address</th>
+                    <th className="px-4 py-3">Company / Business</th>
+                    <th className="px-4 py-3">Role</th>
+                    <th className="px-4 py-3">Active Businesses</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {clients.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-bold text-slate-900">{c.name}</td>
+                      <td className="px-4 py-3 font-mono text-slate-600">{c.email}</td>
+                      <td className="px-4 py-3 text-slate-700">{c.companyName || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            c.role === "admin"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {c.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">
+                        {businesses.filter((b) => b.clientId === c.id).length} business(es)
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 5: ADMIN AUDIT LOGS */}
+        {/* ========================================== */}
+        {isAdmin && activeTab === "audit" && (
+          <div className="space-y-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <h2 className="text-base font-bold text-slate-900">
+                Business &amp; Category Audit Logs
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Complete history of business profile creations, updates, and deletions.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Business</th>
+                    <th className="px-4 py-3">User Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-slate-400">
+                        No audit logs recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 font-mono text-slate-500">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              log.action === "create"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : log.action === "update"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">
+                          {log.businessName || log.businessId}
+                        </td>
+                        <td className="px-4 py-3 uppercase text-slate-600">
+                          {log.userRole} ({log.userId})
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </main>
+
+      {/* ======================================================== */}
+      {/* CLIENT 7-STEP BUSINESS REGISTRATION / EDIT MODAL */}
+      {/* ======================================================== */}
+      {isWizardOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative my-8">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {isEditingExisting ? "Edit Business Profile" : "Add New Business (7-Step Wizard)"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Step {wizardStep} of 7: {
+                    wizardStep === 1 ? "Business Name & Public Slug" :
+                    wizardStep === 2 ? "Select Parent Industry" :
+                    wizardStep === 3 ? "Select Subcategory & Business Type" :
+                    wizardStep === 4 ? "Business Description" :
+                    wizardStep === 5 ? "Logo & Brand Accent Color" :
+                    wizardStep === 6 ? "Google Review URL & Contact Info" :
+                    "Review & Save Profile"
+                  }
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWizardOpen(false)}
+                className="text-slate-400 hover:text-slate-700 text-xl font-bold p-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Step Progress Indicators */}
+            <div className="flex items-center justify-between mb-6">
+              {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                <div
+                  key={num}
+                  className={`flex-1 h-1.5 rounded-full mx-0.5 transition-all ${
+                    num <= wizardStep ? "bg-emerald-600" : "bg-slate-100"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {businessError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{businessError}</span>
+              </div>
+            )}
+
+            {/* STEP 1: BUSINESS NAME & SLUG */}
+            {wizardStep === 1 && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={bizName}
+                    onChange={(e) => handleSlugify(e.target.value)}
+                    placeholder="e.g. Kartik Restaurant & Bar or RMSolution Tech"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Public Review Slug *
+                  </label>
+                  <div className="flex items-center">
+                    <span className="bg-slate-100 border border-r-0 border-slate-200 px-3 py-2.5 rounded-l-xl text-slate-500 font-mono text-xs">
+                      /r/
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={bizSlug}
+                      onChange={(e) => setBizSlug(e.target.value)}
+                      placeholder="kartik-restaurant-bar"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Customers will scan and visit: <code className="text-slate-600">/r/{bizSlug || "slug"}</code>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: PARENT CATEGORY */}
+            {wizardStep === 2 && (
+              <div className="space-y-3 text-xs">
+                <label className="block font-semibold text-slate-700">
+                  Select Parent Industry *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                  {parentCategories.map((p) => {
+                    const isSelected = bizParentId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => handleParentCategoryChange(p.id)}
+                        className={`p-3 rounded-xl border cursor-pointer transition text-left ${
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold shadow-sm"
+                            : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{p.name}</span>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: SUBCATEGORY & BUSINESS TYPE */}
+            {wizardStep === 3 && (
+              <div className="space-y-3 text-xs">
+                <label className="block font-semibold text-slate-700">
+                  Select Specific Business Subcategory *
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                  {subcategories
+                    .filter((s) => s.parentId === bizParentId)
+                    .map((s) => {
+                      const isSelected = bizSubId === s.id;
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setBizSubId(s.id)}
+                          className={`p-3 rounded-xl border cursor-pointer transition text-left ${
+                            isSelected
+                              ? "border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold shadow-sm"
+                              : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span>{s.name}</span>
+                            {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                          </div>
+                          <p className="text-[10px] text-slate-400 line-clamp-1">
+                            {s.services.slice(0, 3).join(", ")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+                {subcategories.filter((s) => s.parentId === bizParentId).length === 0 && (
+                  <p className="text-slate-400 text-xs">
+                    No subcategories found under selected parent category.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* STEP 4: DESCRIPTION & CUSTOM SERVICES */}
+            {wizardStep === 4 && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Business Description (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={bizDescription}
+                    onChange={(e) => setBizDescription(e.target.value)}
+                    placeholder="e.g. Authentic multicuisine dining, warm hospitality, and memorable moments."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                    maxLength={350}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Displayed prominently on your public review landing page.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Custom Services / Highlights (Optional Override)
+                  </label>
+                  <input
+                    type="text"
+                    value={bizCustomServices}
+                    onChange={(e) => setBizCustomServices(e.target.value)}
+                    placeholder="e.g. Great Cocktails, Live Music, Paneer Tikka (comma-separated)"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Leave empty to automatically use default tags from the selected subcategory.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: LOGO & BRAND COLOR */}
+            {wizardStep === 5 && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Logo Image URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={bizLogoUrl}
+                    onChange={(e) => setBizLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Brand Accent Color *
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={bizAccentColor}
+                      onChange={(e) => setBizAccentColor(e.target.value)}
+                      className="w-12 h-10 p-0.5 rounded-lg border border-slate-200 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={bizAccentColor}
+                      onChange={(e) => setBizAccentColor(e.target.value)}
+                      className="w-32 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs uppercase"
+                    />
+                    <div
+                      className="px-3 py-1.5 rounded-lg text-white font-bold text-xs shadow-sm"
+                      style={{ backgroundColor: bizAccentColor }}
+                    >
+                      Color Preview
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 6: GOOGLE REVIEW URL & CONTACT INFO */}
+            {wizardStep === 6 && (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Google Review URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={bizGoogleReviewUrl}
+                    onChange={(e) => setBizGoogleReviewUrl(e.target.value)}
+                    placeholder="https://g.page/r/.../review"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Direct destination link where customers are sent to submit their 5-star Google review.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Contact Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      value={bizContactEmail}
+                      onChange={(e) => setBizContactEmail(e.target.value)}
+                      placeholder="owner@business.com"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Contact Phone (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={bizContactPhone}
+                      onChange={(e) => setBizContactPhone(e.target.value)}
+                      placeholder="+91 9876543210"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 7: REVIEW & SAVE */}
+            {wizardStep === 7 && (
+              <div className="space-y-4 text-xs">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Business:</span>
+                    <span className="font-bold text-slate-900">{bizName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Slug:</span>
+                    <span className="font-mono text-emerald-700">/r/{bizSlug}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Industry:</span>
+                    <span className="text-slate-800">
+                      {parentCategories.find((p) => p.id === bizParentId)?.name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Type:</span>
+                    <span className="text-slate-800">
+                      {subcategories.find((s) => s.id === bizSubId)?.name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-semibold">Destination:</span>
+                    <span className="font-mono text-slate-700 truncate max-w-xs">{bizGoogleReviewUrl}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="bizActiveCheck"
+                    checked={bizIsActive}
+                    onChange={(e) => setBizIsActive(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded"
+                  />
+                  <label htmlFor="bizActiveCheck" className="text-slate-700 font-semibold">
+                    Publish Business Profile immediately (Active on Public Website)
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Wizard Navigation Buttons */}
+            <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-6">
+              {wizardStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(wizardStep - 1)}
+                  className="flex items-center gap-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {wizardStep < 7 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wizardStep === 1 && (!bizName.trim() || !bizSlug.trim())) {
+                      setBusinessError("Please enter both business name and public slug.");
+                      return;
+                    }
+                    if (wizardStep === 2 && !bizParentId) {
+                      setBusinessError("Please select a parent industry category.");
+                      return;
+                    }
+                    if (wizardStep === 3 && !bizSubId) {
+                      setBusinessError("Please select a business subcategory.");
+                      return;
+                    }
+                    if (wizardStep === 6 && !bizGoogleReviewUrl.trim()) {
+                      setBusinessError("Please provide your Google Review destination URL.");
+                      return;
+                    }
+                    setBusinessError(null);
+                    setWizardStep(wizardStep + 1);
+                  }}
+                  className="flex items-center gap-1 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition shadow-md"
+                >
+                  <span>Continue</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveBusinessProfile}
+                  disabled={savingBusiness}
+                  className="flex items-center gap-1.5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-md disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {savingBusiness ? "Saving..." : "Save & Publish Profile"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* DELETE CONFIRMATION MODAL */}
+      {/* ======================================================== */}
+      {deleteModalOpen && businessToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 text-center">
+              Delete Business Profile?
+            </h3>
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              Are you sure you want to delete <strong className="text-slate-800">{businessToDelete.name}</strong>?
+              This will remove the public review page and QR destination. Historical records remain archived safely.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingBusiness}
+                onClick={handleExecuteDeleteBusiness}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50"
+              >
+                {deletingBusiness ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* ADMIN PARENT CATEGORY MODAL */}
+      {/* ======================================================== */}
+      {isParentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900">
+              {editParentId ? "Edit Parent Category" : "Add Parent Category"}
+            </h3>
+
+            {parentError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                {parentError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveParentCategory} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={parentName}
+                  onChange={(e) => {
+                    setParentName(e.target.value);
+                    if (!editParentId) {
+                      setParentSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+                    }
+                  }}
+                  placeholder="e.g. Hospitality & Food Services"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={parentSlug}
+                  onChange={(e) => setParentSlug(e.target.value)}
+                  placeholder="hospitality"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={parentDesc}
+                  onChange={(e) => setParentDesc(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Order</label>
+                  <input
+                    type="number"
+                    value={parentOrder}
+                    onChange={(e) => setParentOrder(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={parentIsActive}
+                      onChange={(e) => setParentIsActive(e.target.checked)}
+                      className="w-4 h-4 text-emerald-600 rounded"
+                    />
+                    Active
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsParentModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md"
+                >
+                  Save Category
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* ADMIN SUBCATEGORY MODAL */}
+      {/* ======================================================== */}
+      {isSubModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900">
+              {editSubId ? "Edit Subcategory" : "Add Subcategory"}
+            </h3>
+
+            {subError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                {subError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSubcategory} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Parent Category *</label>
+                <select
+                  value={subParentId}
+                  onChange={(e) => setSubParentId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                >
+                  {parentCategories.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Subcategory Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={subName}
+                  onChange={(e) => {
+                    setSubName(e.target.value);
+                    if (!editSubId) {
+                      setSubSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+                    }
+                  }}
+                  placeholder="e.g. Restaurant & Bar"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={subSlug}
+                  onChange={(e) => setSubSlug(e.target.value)}
+                  placeholder="restaurant-bar"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Services / Review Tags * (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={subServices}
+                  onChange={(e) => setSubServices(e.target.value)}
+                  placeholder="Food Quality, Drinks, Ambience, Prompt Service, Friendly Staff"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSubModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md"
+                >
+                  Save Subcategory
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ export const ValidLanguages = ["en", "mr", "hi"] as const;
 
 export const ReviewSuggestionSchema = z.object({
   businessName: z.string().trim().min(1, "Business name is required").max(100),
+  parentCategoryName: z.string().trim().max(100).optional(),
+  subcategoryName: z.string().trim().max(100).optional(),
   categoryName: z.string().trim().max(100).optional(),
   rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
   selectedTags: z.array(z.string().trim().min(1).max(50)).default([]),
@@ -32,6 +34,9 @@ export const GoogleReviewUrlSchema = z
   );
 
 export const BusinessInputSchema = z.object({
+  id: z.string().optional(),
+  clientId: z.string().optional(),
+  clientName: z.string().optional(),
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
   slug: z
     .string()
@@ -39,11 +44,15 @@ export const BusinessInputSchema = z.object({
     .min(2, "Slug must be at least 2 characters")
     .max(80)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must only contain lowercase alphanumeric characters and hyphens"),
+  parentCategoryId: z.string().trim().optional().or(z.literal("")),
+  parentCategoryName: z.string().trim().max(100).optional().or(z.literal("")),
+  subcategoryId: z.string().trim().optional().or(z.literal("")),
+  subcategoryName: z.string().trim().max(100).optional().or(z.literal("")),
   categoryId: z.string().trim().optional().or(z.literal("")),
   categoryName: z.string().trim().max(100).optional().or(z.literal("")),
   googleReviewUrl: GoogleReviewUrlSchema,
   logoUrl: z.string().trim().url("Must be a valid URL").optional().or(z.literal("")),
-  description: z.string().trim().max(280, "Description cannot exceed 280 characters").optional().or(z.literal("")),
+  description: z.string().trim().max(350, "Description cannot exceed 350 characters").optional().or(z.literal("")),
   accentColor: z
     .string()
     .trim()
@@ -51,7 +60,42 @@ export const BusinessInputSchema = z.object({
     .optional()
     .or(z.literal("")),
   customServices: z.array(z.string().trim().min(1)).optional().default([]),
+  status: z.enum(["active", "archived", "deleted"]).optional().default("active"),
   isActive: z.boolean().optional().default(true),
+  contactEmail: z.string().email("Invalid email").optional().or(z.literal("")),
+  contactPhone: z.string().trim().max(20).optional().or(z.literal("")),
+  address: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
+export const ParentCategoryInputSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(2, "Parent category name is required").max(100),
+  slug: z
+    .string()
+    .trim()
+    .min(2, "Slug must be at least 2 characters")
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must only contain lowercase alphanumeric characters and hyphens"),
+  description: z.string().trim().max(300).optional().or(z.literal("")),
+  icon: z.string().trim().max(50).optional().or(z.literal("")),
+  isActive: z.boolean().default(true),
+  displayOrder: z.number().int().optional().default(1),
+});
+
+export const SubcategoryInputSchema = z.object({
+  id: z.string().optional(),
+  parentId: z.string().min(1, "Parent category is required"),
+  name: z.string().trim().min(2, "Subcategory name is required").max(100),
+  slug: z
+    .string()
+    .trim()
+    .min(2, "Slug must be at least 2 characters")
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must only contain lowercase alphanumeric characters and hyphens"),
+  description: z.string().trim().max(300).optional().or(z.literal("")),
+  services: z.array(z.string().trim().min(1)).min(1, "At least one service tag is required"),
+  isActive: z.boolean().default(true),
+  displayOrder: z.number().int().optional().default(1),
 });
 
 export const CategoryInputSchema = z.object({
@@ -70,6 +114,19 @@ export const CategoryInputSchema = z.object({
 
 export const AdminLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
+});
+
+export const ClientLoginSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const ClientRegisterSchema = z.object({
+  name: z.string().trim().min(2, "Full name must be at least 2 characters").max(80),
+  email: z.string().email("Valid email address is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  companyName: z.string().trim().max(100).optional().or(z.literal("")),
+  phone: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
 /**

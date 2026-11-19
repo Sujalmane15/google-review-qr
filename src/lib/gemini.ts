@@ -103,7 +103,11 @@ export async function generateReviewSuggestionsWithGemini(
     hi: "Hindi (हिन्दी)",
   };
 
-  const categoryContext = req.categoryName ? `Business Category / Industry: ${req.categoryName}` : "";
+  const categoryParts = [
+    req.parentCategoryName ? `Industry: ${req.parentCategoryName}` : "",
+    req.subcategoryName || req.categoryName ? `Business Type: ${req.subcategoryName || req.categoryName}` : "",
+  ].filter(Boolean);
+  const categoryContext = categoryParts.length > 0 ? `Business Category: ${categoryParts.join(" > ")}` : "";
 
   const userPrompt = `Business Name: "${req.businessName}"
 ${categoryContext}

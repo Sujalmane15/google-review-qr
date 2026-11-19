@@ -21,6 +21,10 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 interface BusinessProfile {
   name: string;
   slug: string;
+  parentCategoryId?: string;
+  parentCategoryName?: string;
+  subcategoryId?: string;
+  subcategoryName?: string;
   categoryId?: string;
   categoryName?: string;
   googleReviewUrl: string;
@@ -89,7 +93,9 @@ export default function CustomerReviewPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessName: business.name,
-          categoryName: business.categoryName,
+          parentCategoryName: business.parentCategoryName,
+          subcategoryName: business.subcategoryName || business.categoryName,
+          categoryName: business.subcategoryName || business.categoryName,
           rating,
           selectedTags,
           optionalCustomerText: customerText,
