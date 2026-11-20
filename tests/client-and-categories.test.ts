@@ -267,4 +267,49 @@ describe("Client Management & Dynamic Category Architecture Tests", () => {
     expect(deleteSubResult.success).toBe(false);
     expect(deleteSubResult.error).toContain("active business(es) are assigned to it");
   });
+
+  it("Scenario 10: Client can create custom business type on the fly without code changes & existing businesses remain intact", async () => {
+    // 1. Existing seeded businesses remain intact
+    const rmsolution = await adapter.getBusinessBySlug("rmsolution");
+    expect(rmsolution).not.toBeNull();
+    expect(rmsolution?.name).toBe("RMSolution Tech");
+
+    const kartik = await adapter.getBusinessBySlug("kartik-restaurant-bar");
+    expect(kartik).not.toBeNull();
+    expect(kartik?.name).toBe("Kartik Restaurant & Bar");
+
+    // 2. Client creates custom subcategory on the fly under "Other Businesses"
+    const customSub = await adapter.upsertSubcategory({
+      parentId: "pcat-other",
+      name: "Boutique Ceramic Studio",
+      slug: "boutique-ceramic-studio",
+      description: "Handcrafted pottery and ceramic workshops.",
+      reviewQuestion: "What did you love about your pottery experience?",
+      services: ["Clay Quality", "Kiln Firing", "Instructor Guidance", "Glazing Variety"],
+      isActive: true,
+    });
+
+    expect(customSub.id).toBeDefined();
+    expect(customSub.name).toBe("Boutique Ceramic Studio");
+    expect(customSub.reviewQuestion).toBe("What did you love about your pottery experience?");
+
+    // 3. Client creates business under that dynamic type
+    const potteryBiz = await adapter.upsertBusiness({
+      name: "Earth & Fire Ceramics",
+      slug: "earth-and-fire-ceramics",
+      parentCategoryId: "pcat-other",
+      parentCategoryName: "Other Businesses",
+      subcategoryId: customSub.id,
+      subcategoryName: "Boutique Ceramic Studio",
+      googleReviewUrl: "https://g.page/r/earth-fire/review",
+      reviewQuestion: customSub.reviewQuestion,
+      customServices: customSub.services,
+      isActive: true,
+    });
+
+    expect(potteryBiz.name).toBe("Earth & Fire Ceramics");
+    expect(potteryBiz.subcategoryName).toBe("Boutique Ceramic Studio");
+    expect(potteryBiz.reviewQuestion).toBe("What did you love about your pottery experience?");
+    expect(potteryBiz.customServices).toContain("Clay Quality");
+  });
 });

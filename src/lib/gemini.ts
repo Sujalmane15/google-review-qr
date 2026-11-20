@@ -111,13 +111,14 @@ export async function generateReviewSuggestionsWithGemini(
 
   const userPrompt = `Business Name: "${req.businessName}"
 ${categoryContext}
+${req.reviewQuestion ? `Review Focus Question: ${req.reviewQuestion}` : ""}
 Customer Star Rating: ${req.rating} out of 5 stars
 Selected Services / Tags: ${req.selectedTags.length > 0 ? req.selectedTags.join(", ") : "None specified"}
 Customer's Own Words: ${req.optionalCustomerText && req.optionalCustomerText.trim() ? `"${req.optionalCustomerText.trim()}"` : "None provided"}
 Target Output Language: ${langNames[req.language] || "English"}
 
 Please provide exactly 3 natural, distinct, concise review draft options separated by "---".
-Do not invent facts, food items, prices, or staff names. Reflect the ${req.rating}-star rating honestly and align the tone with the business industry.`;
+Do not invent facts, food items, prices, or staff names. Reflect the ${req.rating}-star rating honestly and align the tone strictly with the business industry. NEVER include food or restaurant phrasing for non-food businesses.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey });

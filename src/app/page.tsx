@@ -11,11 +11,11 @@ import {
   ExternalLink,
   Filter,
 } from "lucide-react";
-import { Business, BusinessCategory } from "@/types";
+import { Business, ParentCategory } from "@/types";
 
 export default function HomePage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [categories, setCategories] = useState<BusinessCategory[]>([]);
+  const [parentCategories, setParentCategories] = useState<ParentCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,13 +25,13 @@ export default function HomePage() {
       try {
         const [bizRes, catRes] = await Promise.all([
           fetch("/api/businesses"),
-          fetch("/api/categories"),
+          fetch("/api/categories/parents"),
         ]);
         if (bizRes.ok && catRes.ok) {
           const biz = await bizRes.json();
-          const cat = await catRes.json();
+          const parents = await catRes.json();
           setBusinesses(biz);
-          setCategories(cat);
+          setParentCategories(parents);
         }
       } catch (err) {
         console.error("Failed to load directory:", err);
@@ -45,12 +45,17 @@ export default function HomePage() {
   const filteredBusinesses = businesses.filter((b) => {
     const matchesCategory =
       selectedCategory === "all" ||
+      b.parentCategoryId === selectedCategory ||
+      b.subcategoryId === selectedCategory ||
       b.categoryId === selectedCategory ||
+      b.parentCategoryName?.toLowerCase() === selectedCategory.toLowerCase() ||
       b.categoryName?.toLowerCase() === selectedCategory.toLowerCase();
 
     const matchesSearch =
       b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.parentCategoryName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.subcategoryName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.categoryName?.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesCategory && matchesSearch;
@@ -118,7 +123,7 @@ export default function HomePage() {
             >
               All Industries
             </button>
-            {categories.map((c) => (
+            {parentCategories.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setSelectedCategory(c.id)}

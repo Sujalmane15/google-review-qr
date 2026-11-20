@@ -27,6 +27,7 @@ interface BusinessProfile {
   subcategoryName?: string;
   categoryId?: string;
   categoryName?: string;
+  reviewQuestion?: string;
   googleReviewUrl: string;
   logoUrl?: string;
   description?: string;
@@ -96,6 +97,7 @@ export default function CustomerReviewPage({
           parentCategoryName: business.parentCategoryName,
           subcategoryName: business.subcategoryName || business.categoryName,
           categoryName: business.subcategoryName || business.categoryName,
+          reviewQuestion: business.reviewQuestion,
           rating,
           selectedTags,
           optionalCustomerText: customerText,
@@ -264,7 +266,7 @@ export default function CustomerReviewPage({
           {business.services && business.services.length > 0 && (
             <div className="mb-5">
               <label className="block text-xs font-semibold text-slate-700 text-center mb-2.5">
-                {t.whatDidYouLike}
+                {business.reviewQuestion || t.whatDidYouLike}
               </label>
               <TagSelector
                 tags={business.services}

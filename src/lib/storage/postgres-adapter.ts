@@ -62,6 +62,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
         name VARCHAR(120) NOT NULL,
         slug VARCHAR(100) UNIQUE NOT NULL,
         description TEXT,
+        review_question TEXT,
         services JSONB NOT NULL DEFAULT '[]'::jsonb,
         placeholder_text JSONB,
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -75,6 +76,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
         name VARCHAR(120) NOT NULL,
         slug VARCHAR(100) UNIQUE NOT NULL,
         description TEXT,
+        review_question TEXT,
         icon VARCHAR(50),
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         services JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -95,6 +97,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
         subcategory_name VARCHAR(120),
         category_id VARCHAR(64),
         category_name VARCHAR(120),
+        review_question TEXT,
+        is_platform_provider BOOLEAN DEFAULT FALSE,
         google_review_url TEXT NOT NULL,
         logo_url TEXT,
         description TEXT,
@@ -124,6 +128,12 @@ export class PostgresStorageAdapter implements StorageAdapter {
       CREATE INDEX IF NOT EXISTS idx_businesses_slug ON businesses(slug);
       CREATE INDEX IF NOT EXISTS idx_businesses_client ON businesses(client_id);
       CREATE INDEX IF NOT EXISTS idx_subcategories_parent ON subcategories(parent_id);
+
+      -- Migration additions for existing tables
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS review_question TEXT;
+      ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_platform_provider BOOLEAN DEFAULT FALSE;
+      ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS review_question TEXT;
+      ALTER TABLE business_categories ADD COLUMN IF NOT EXISTS review_question TEXT;
     `;
 
     await this.pool.query(query);
@@ -336,7 +346,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
   async getAllSubcategories(parentId?: string): Promise<Subcategory[]> {
     await this.init();
     let query = `
-      SELECT id, parent_id as "parentId", name, slug, description,
+      SELECT id, parent_id as "parentId", name, slug, description, review_question as "reviewQuestion",
              services, placeholder_text as "placeholderText", is_active as "isActive",
              display_order as "displayOrder",
              created_at as "createdAt", updated_at as "updatedAt"
@@ -360,7 +370,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
   async getSubcategoryById(id: string): Promise<Subcategory | null> {
     await this.init();
     const res = await this.pool.query(
-      `SELECT id, parent_id as "parentId", name, slug, description,
+      `SELECT id, parent_id as "parentId", name, slug, description, review_question as "reviewQuestion",
               services, placeholder_text as "placeholderText", is_active as "isActive",
               display_order as "displayOrder",
               created_at as "createdAt", updated_at as "updatedAt"
@@ -383,18 +393,19 @@ export class PostgresStorageAdapter implements StorageAdapter {
     const id = data.id || `sub-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
     const query = `
-      INSERT INTO subcategories (id, parent_id, name, slug, description, services, placeholder_text, is_active, display_order, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+      INSERT INTO subcategories (id, parent_id, name, slug, description, review_question, services, placeholder_text, is_active, display_order, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
       ON CONFLICT (slug) DO UPDATE SET
         parent_id = EXCLUDED.parent_id,
         name = EXCLUDED.name,
         description = EXCLUDED.description,
+        review_question = EXCLUDED.review_question,
         services = EXCLUDED.services,
         placeholder_text = EXCLUDED.placeholder_text,
         is_active = EXCLUDED.is_active,
         display_order = EXCLUDED.display_order,
         updated_at = EXCLUDED.updated_at
-      RETURNING id, parent_id as "parentId", name, slug, description,
+      RETURNING id, parent_id as "parentId", name, slug, description, review_question as "reviewQuestion",
                 services, placeholder_text as "placeholderText", is_active as "isActive",
                 display_order as "displayOrder",
                 created_at as "createdAt", updated_at as "updatedAt";
@@ -405,6 +416,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
       data.name.trim(),
       data.slug.toLowerCase().trim(),
       data.description || null,
+      data.reviewQuestion || null,
       JSON.stringify(data.services || []),
       JSON.stringify(data.placeholderText || null),
       data.isActive ?? true,
@@ -443,6 +455,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
               parent_category_name as "parentCategoryName",
               subcategory_id as "subcategoryId", subcategory_name as "subcategoryName",
               category_id as "categoryId", category_name as "categoryName",
+              review_question as "reviewQuestion", is_platform_provider as "isPlatformProvider",
               google_review_url as "googleReviewUrl", logo_url as "logoUrl",
               description, accent_color as "accentColor", custom_services as "customServices",
               status, is_active as "isActive", contact_email as "contactEmail",
@@ -464,6 +477,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
               parent_category_name as "parentCategoryName",
               subcategory_id as "subcategoryId", subcategory_name as "subcategoryName",
               category_id as "categoryId", category_name as "categoryName",
+              review_question as "reviewQuestion", is_platform_provider as "isPlatformProvider",
               google_review_url as "googleReviewUrl", logo_url as "logoUrl",
               description, accent_color as "accentColor", custom_services as "customServices",
               status, is_active as "isActive", contact_email as "contactEmail",
@@ -486,6 +500,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
               parent_category_name as "parentCategoryName",
               subcategory_id as "subcategoryId", subcategory_name as "subcategoryName",
               category_id as "categoryId", category_name as "categoryName",
+              review_question as "reviewQuestion", is_platform_provider as "isPlatformProvider",
               google_review_url as "googleReviewUrl", logo_url as "logoUrl",
               description, accent_color as "accentColor", custom_services as "customServices",
               status, is_active as "isActive", contact_email as "contactEmail",
@@ -520,11 +535,12 @@ export class PostgresStorageAdapter implements StorageAdapter {
       INSERT INTO businesses (
         id, client_id, client_name, name, slug,
         parent_category_id, parent_category_name, subcategory_id, subcategory_name,
-        category_id, category_name, google_review_url, logo_url,
+        category_id, category_name, review_question, is_platform_provider,
+        google_review_url, logo_url,
         description, accent_color, custom_services, status, is_active,
         contact_email, contact_phone, address, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $22)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $24)
       ON CONFLICT (slug) DO UPDATE SET
         name = EXCLUDED.name,
         client_id = COALESCE(businesses.client_id, EXCLUDED.client_id),
@@ -535,6 +551,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
         subcategory_name = EXCLUDED.subcategory_name,
         category_id = EXCLUDED.category_id,
         category_name = EXCLUDED.category_name,
+        review_question = EXCLUDED.review_question,
+        is_platform_provider = EXCLUDED.is_platform_provider,
         google_review_url = EXCLUDED.google_review_url,
         logo_url = EXCLUDED.logo_url,
         description = EXCLUDED.description,
@@ -551,6 +569,7 @@ export class PostgresStorageAdapter implements StorageAdapter {
                 parent_category_name as "parentCategoryName",
                 subcategory_id as "subcategoryId", subcategory_name as "subcategoryName",
                 category_id as "categoryId", category_name as "categoryName",
+                review_question as "reviewQuestion", is_platform_provider as "isPlatformProvider",
                 google_review_url as "googleReviewUrl", logo_url as "logoUrl",
                 description, accent_color as "accentColor", custom_services as "customServices",
                 status, is_active as "isActive", contact_email as "contactEmail",
@@ -570,6 +589,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
       data.subcategoryName || null,
       data.categoryId || data.subcategoryId || null,
       data.categoryName || data.subcategoryName || null,
+      data.reviewQuestion || null,
+      Boolean(data.isPlatformProvider ?? false),
       data.googleReviewUrl.trim(),
       data.logoUrl?.trim() || null,
       data.description?.trim() || null,
@@ -791,6 +812,8 @@ export class PostgresStorageAdapter implements StorageAdapter {
       subcategoryName: row.subcategoryName ? String(row.subcategoryName) : undefined,
       categoryId: row.categoryId ? String(row.categoryId) : undefined,
       categoryName: row.categoryName ? String(row.categoryName) : undefined,
+      reviewQuestion: row.reviewQuestion ? String(row.reviewQuestion) : undefined,
+      isPlatformProvider: Boolean(row.isPlatformProvider ?? false),
       googleReviewUrl: String(row.googleReviewUrl),
       logoUrl: row.logoUrl ? String(row.logoUrl) : undefined,
       description: row.description ? String(row.description) : undefined,

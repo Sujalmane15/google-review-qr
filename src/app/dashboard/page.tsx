@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const [bizSlug, setBizSlug] = useState("");
   const [bizParentId, setBizParentId] = useState("");
   const [bizSubId, setBizSubId] = useState("");
+  const [bizReviewQuestion, setBizReviewQuestion] = useState("");
   const [bizDescription, setBizDescription] = useState("");
   const [bizLogoUrl, setBizLogoUrl] = useState("");
   const [bizAccentColor, setBizAccentColor] = useState("#16a34a");
@@ -87,6 +88,8 @@ export default function DashboardPage() {
   const [bizAddress, setBizAddress] = useState("");
   const [bizCustomServices, setBizCustomServices] = useState("");
   const [bizIsActive, setBizIsActive] = useState(true);
+  const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
+  const [customTypeName, setCustomTypeName] = useState("");
 
   const [savingBusiness, setSavingBusiness] = useState(false);
   const [businessError, setBusinessError] = useState<string | null>(null);
@@ -205,10 +208,9 @@ export default function DashboardPage() {
     setBizId(undefined);
     setBizName("");
     setBizSlug("");
-    const defaultParent = parentCategories[0]?.id || "";
-    setBizParentId(defaultParent);
-    const availableSubs = subcategories.filter((s) => s.parentId === defaultParent);
-    setBizSubId(availableSubs[0]?.id || "");
+    setBizParentId("");
+    setBizSubId("");
+    setBizReviewQuestion("");
     setBizDescription("");
     setBizLogoUrl("");
     setBizAccentColor("#16a34a");
@@ -218,6 +220,8 @@ export default function DashboardPage() {
     setBizAddress("");
     setBizCustomServices("");
     setBizIsActive(true);
+    setShowCustomTypeInput(false);
+    setCustomTypeName("");
     setIsEditingExisting(false);
     setWizardStep(1);
     setBusinessError(null);
@@ -229,8 +233,9 @@ export default function DashboardPage() {
     setBizId(b.id);
     setBizName(b.name);
     setBizSlug(b.slug);
-    setBizParentId(b.parentCategoryId || parentCategories[0]?.id || "");
+    setBizParentId(b.parentCategoryId || "");
     setBizSubId(b.subcategoryId || b.categoryId || "");
+    setBizReviewQuestion(b.reviewQuestion || "");
     setBizDescription(b.description || "");
     setBizLogoUrl(b.logoUrl || "");
     setBizAccentColor(b.accentColor || "#16a34a");
@@ -240,6 +245,8 @@ export default function DashboardPage() {
     setBizAddress(b.address || "");
     setBizCustomServices(b.customServices ? b.customServices.join(", ") : "");
     setBizIsActive(b.isActive ?? true);
+    setShowCustomTypeInput(false);
+    setCustomTypeName("");
     setIsEditingExisting(true);
     setWizardStep(1);
     setBusinessError(null);
@@ -263,8 +270,71 @@ export default function DashboardPage() {
     const matchingSubs = subcategories.filter((s) => s.parentId === parentId);
     if (matchingSubs.length > 0) {
       setBizSubId(matchingSubs[0].id);
+      if (matchingSubs[0].reviewQuestion && !bizReviewQuestion) {
+        setBizReviewQuestion(matchingSubs[0].reviewQuestion);
+      }
     } else {
       setBizSubId("");
+    }
+  };
+
+  const handleSubcategoryChange = (subId: string) => {
+    setBizSubId(subId);
+    const sub = subcategories.find((s) => s.id === subId);
+    if (sub?.reviewQuestion) {
+      setBizReviewQuestion(sub.reviewQuestion);
+    }
+  };
+
+  const handleCreateCustomType = async () => {
+    if (!customTypeName.trim() || !bizParentId) return;
+    try {
+      const generatedSlug = customTypeName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      const res = await fetch("/api/categories/subcategories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentId: bizParentId,
+          name: customTypeName.trim(),
+          slug: generatedSlug,
+          services: ["Quality of Service", "Staff Behaviour", "Timely Delivery", "Communication"],
+          reviewQuestion: `How was your experience with ${customTypeName.trim()}?`,
+          isActive: true,
+        }),
+      });
+
+      if (res.ok) {
+        const created: Subcategory = await res.json();
+        setSubcategories((prev) => [...prev, created]);
+        setBizSubId(created.id);
+        setBizReviewQuestion(created.reviewQuestion || "");
+        setShowCustomTypeInput(false);
+        setCustomTypeName("");
+      } else {
+        const tempId = `custom-sub-${Date.now()}`;
+        const newSub: Subcategory = {
+          id: tempId,
+          parentId: bizParentId,
+          name: customTypeName.trim(),
+          slug: generatedSlug,
+          services: ["Service Quality", "Staff Behaviour", "Professionalism"],
+          reviewQuestion: `How was your experience with ${customTypeName.trim()}?`,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setSubcategories((prev) => [...prev, newSub]);
+        setBizSubId(tempId);
+        setBizReviewQuestion(newSub.reviewQuestion || "");
+        setShowCustomTypeInput(false);
+        setCustomTypeName("");
+      }
+    } catch {
+      setShowCustomTypeInput(false);
     }
   };
 
@@ -294,6 +364,7 @@ export default function DashboardPage() {
         subcategoryName: selectedSub?.name,
         categoryId: bizSubId || undefined,
         categoryName: selectedSub?.name,
+        reviewQuestion: bizReviewQuestion.trim() || undefined,
         googleReviewUrl: bizGoogleReviewUrl.trim(),
         logoUrl: bizLogoUrl.trim() || undefined,
         description: bizDescription.trim() || undefined,
@@ -1297,9 +1368,54 @@ export default function DashboardPage() {
             {/* STEP 3: SUBCATEGORY & BUSINESS TYPE */}
             {wizardStep === 3 && (
               <div className="space-y-3 text-xs">
-                <label className="block font-semibold text-slate-700">
-                  Select Specific Business Subcategory *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-700">
+                    Select Specific Business Subcategory *
+                  </label>
+                  {!showCustomTypeInput && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomTypeInput(true)}
+                      className="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      + Add Custom Type
+                    </button>
+                  )}
+                </div>
+
+                {showCustomTypeInput && (
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <label className="block font-semibold text-slate-800 text-xs">
+                      Enter New Business Type Name
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={customTypeName}
+                        onChange={(e) => setCustomTypeName(e.target.value)}
+                        placeholder="e.g. Cloud Security Consultancy or Luxury Villa"
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateCustomType}
+                        disabled={!customTypeName.trim()}
+                        className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        Create
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomTypeInput(false)}
+                        className="px-2.5 py-1.5 text-slate-500 hover:text-slate-800 text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
                   {subcategories
                     .filter((s) => s.parentId === bizParentId)
@@ -1308,7 +1424,7 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={s.id}
-                          onClick={() => setBizSubId(s.id)}
+                          onClick={() => handleSubcategoryChange(s.id)}
                           className={`p-3 rounded-xl border cursor-pointer transition text-left ${
                             isSelected
                               ? "border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold shadow-sm"
@@ -1326,26 +1442,53 @@ export default function DashboardPage() {
                       );
                     })}
                 </div>
-                {subcategories.filter((s) => s.parentId === bizParentId).length === 0 && (
-                  <p className="text-slate-400 text-xs">
-                    No subcategories found under selected parent category.
-                  </p>
+                {subcategories.filter((s) => s.parentId === bizParentId).length === 0 && !showCustomTypeInput && (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-500 text-xs">
+                    <p className="mb-2">No predefined subcategories under this industry yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomTypeInput(true)}
+                      className="px-3 py-1 bg-emerald-600 text-white text-xs font-semibold rounded-lg"
+                    >
+                      + Add Custom Business Type
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* STEP 4: DESCRIPTION & CUSTOM SERVICES */}
+            {/* STEP 4: DESCRIPTION, DYNAMIC REVIEW QUESTION & TAGS */}
             {wizardStep === 4 && (
               <div className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Customer Review Focus Question (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={bizReviewQuestion}
+                    onChange={(e) => setBizReviewQuestion(e.target.value)}
+                    placeholder={
+                      subcategories.find((s) => s.id === bizSubId)?.reviewQuestion ||
+                      "e.g. What did you appreciate about our service?"
+                    }
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                    maxLength={180}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    The specific question asked to customers on your public review landing page (e.g. &ldquo;What stood out during your appointment?&rdquo;).
+                  </p>
+                </div>
+
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
                     Business Description (Optional)
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={bizDescription}
                     onChange={(e) => setBizDescription(e.target.value)}
-                    placeholder="e.g. Authentic multicuisine dining, warm hospitality, and memorable moments."
+                    placeholder="e.g. Professional enterprise software engineering and cloud infrastructure services."
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
                     maxLength={350}
                   />
@@ -1356,17 +1499,20 @@ export default function DashboardPage() {
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Custom Services / Highlights (Optional Override)
+                    Custom Review Tags / Services (Optional Override)
                   </label>
                   <input
                     type="text"
                     value={bizCustomServices}
                     onChange={(e) => setBizCustomServices(e.target.value)}
-                    placeholder="e.g. Great Cocktails, Live Music, Paneer Tikka (comma-separated)"
+                    placeholder={
+                      subcategories.find((s) => s.id === bizSubId)?.services.slice(0, 4).join(", ") ||
+                      "e.g. Technical Expertise, Delivery Speed, Communication (comma-separated)"
+                    }
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Leave empty to automatically use default tags from the selected subcategory.
+                    Leave empty to automatically use default tags from the selected subcategory. No food defaults will appear for non-food businesses.
                   </p>
                 </div>
               </div>

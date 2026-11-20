@@ -51,26 +51,28 @@ export const SEED_BUSINESSES: Business[] = [
   {
     id: "rmsolution-default-id",
     clientId: "client-rmsolution-id",
-    clientName: "RMSolution Tech Client",
+    clientName: "RMSolution Platform Provider",
     name: "RMSolution Tech",
     slug: "rmsolution-tech",
     parentCategoryId: "pcat-technology",
-    parentCategoryName: "IT & Technology Companies",
+    parentCategoryName: "Information Technology",
     subcategoryId: "cat-it-tech",
-    subcategoryName: "IT & Technology Companies",
+    subcategoryName: "IT Company",
     categoryId: "cat-it-tech",
     categoryName: "IT & Technology Companies",
+    reviewQuestion: "What did you appreciate about our IT & technology delivery?",
     googleReviewUrl: "https://g.page/r/CdT-R2IpVtpnEBM/review",
     description: "Website, Mobile App & Enterprise Software Development services.",
     accentColor: "#16a34a",
+    isPlatformProvider: true,
     customServices: [
+      "Technical Expertise",
+      "Code Quality",
+      "Communication",
+      "Project Delivery",
       "Web Development",
       "App Development",
-      "Mobile App Development",
-      "UI/UX Design",
-      "Code Quality",
-      "Timely Delivery",
-      "Customer Support",
+      "Technical Support",
     ],
     status: "active",
     isActive: true,
@@ -80,24 +82,28 @@ export const SEED_BUSINESSES: Business[] = [
   {
     id: "rmsolution-legacy-id",
     clientId: "client-rmsolution-id",
-    clientName: "RMSolution Tech Client",
+    clientName: "RMSolution Platform Provider",
     name: "RMSolution Tech",
     slug: "rmsolution",
     parentCategoryId: "pcat-technology",
-    parentCategoryName: "IT & Technology Companies",
+    parentCategoryName: "Information Technology",
     subcategoryId: "cat-it-tech",
-    subcategoryName: "IT & Technology Companies",
+    subcategoryName: "IT Company",
     categoryId: "cat-it-tech",
     categoryName: "IT & Technology Companies",
+    reviewQuestion: "What did you appreciate about our IT & technology delivery?",
     googleReviewUrl: "https://g.page/r/CdT-R2IpVtpnEBM/review",
     description: "Website, App & Software Development services.",
     accentColor: "#16a34a",
+    isPlatformProvider: true,
     customServices: [
+      "Technical Expertise",
+      "Code Quality",
+      "Communication",
+      "Project Delivery",
       "Web Development",
       "App Development",
-      "UI/UX Design",
-      "Code Quality",
-      "Timely Delivery",
+      "Technical Support",
     ],
     status: "active",
     isActive: true,
@@ -111,22 +117,23 @@ export const SEED_BUSINESSES: Business[] = [
     name: "Kartik Restaurant & Bar",
     slug: "kartik-restaurant-bar",
     parentCategoryId: "pcat-hospitality",
-    parentCategoryName: "Hospitality & Food Services",
+    parentCategoryName: "Hospitality",
     subcategoryId: "sub-restaurant-bar",
-    subcategoryName: "Restaurant & Bar",
+    subcategoryName: "Restaurant",
     categoryId: "sub-restaurant-bar",
-    categoryName: "Restaurant & Bar",
+    categoryName: "Restaurant",
+    reviewQuestion: "What did you enjoy about your dining experience?",
     googleReviewUrl: "https://g.page/r/CZk4sitKj1QqEBM/review",
     description: "Authentic multicuisine dining, warm hospitality, and memorable moments.",
     accentColor: "#16a34a",
+    isPlatformProvider: false,
     customServices: [
       "Food Quality & Taste",
       "Drinks & Cocktails",
       "Ambience & Music",
-      "Quick & Polite Service",
-      "Staff Courtesy",
-      "Cleanliness & Hygiene",
-      "Value for Money",
+      "Staff Behaviour",
+      "Quick Service",
+      "Hygiene & Cleanliness",
     ],
     status: "active",
     isActive: true,
@@ -311,16 +318,44 @@ export class JsonStorageAdapter implements StorageAdapter {
   // ==========================================
   private async readAllParentCategories(): Promise<ParentCategory[]> {
     await this.init();
+    let list: ParentCategory[] = [];
     if (this.useMemoryFallback) {
-      return Array.from(memoryParentCategories.values());
+      list = Array.from(memoryParentCategories.values());
+    } else {
+      try {
+        const content = await fs.readFile(this.parentCatFilePath, "utf-8");
+        list = JSON.parse(content) as ParentCategory[];
+      } catch {
+        list = Array.from(memoryParentCategories.values());
+      }
     }
-    try {
-      const content = await fs.readFile(this.parentCatFilePath, "utf-8");
-      const list = JSON.parse(content) as ParentCategory[];
-      return list.length > 0 ? list : INITIAL_PARENT_CATEGORIES;
-    } catch {
-      return Array.from(memoryParentCategories.values());
+
+    if (!list || list.length === 0) {
+      list = [...INITIAL_PARENT_CATEGORIES];
+      await this.writeParentCategoriesAtomic(list);
+      return list;
     }
+
+    // Safe migration: synchronize initial parent categories while preserving user-created ones
+    let modified = false;
+    for (const initP of INITIAL_PARENT_CATEGORIES) {
+      const idx = list.findIndex((p) => p.id === initP.id || p.slug === initP.slug);
+      if (idx >= 0) {
+        if (list[idx].name !== initP.name || list[idx].displayOrder !== initP.displayOrder) {
+          list[idx] = { ...list[idx], name: initP.name, displayOrder: initP.displayOrder };
+          modified = true;
+        }
+      } else {
+        list.push(initP);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      await this.writeParentCategoriesAtomic(list);
+    }
+
+    return list;
   }
 
   private async writeParentCategoriesAtomic(cats: ParentCategory[]): Promise<void> {
@@ -411,16 +446,55 @@ export class JsonStorageAdapter implements StorageAdapter {
   // ==========================================
   private async readAllSubcategories(): Promise<Subcategory[]> {
     await this.init();
+    let list: Subcategory[] = [];
     if (this.useMemoryFallback) {
-      return Array.from(memorySubcategories.values());
+      list = Array.from(memorySubcategories.values());
+    } else {
+      try {
+        const content = await fs.readFile(this.subCatFilePath, "utf-8");
+        list = JSON.parse(content) as Subcategory[];
+      } catch {
+        list = Array.from(memorySubcategories.values());
+      }
     }
-    try {
-      const content = await fs.readFile(this.subCatFilePath, "utf-8");
-      const list = JSON.parse(content) as Subcategory[];
-      return list.length > 0 ? list : INITIAL_SUBCATEGORIES;
-    } catch {
-      return Array.from(memorySubcategories.values());
+
+    if (!list || list.length === 0) {
+      list = [...INITIAL_SUBCATEGORIES];
+      await this.writeSubcategoriesAtomic(list);
+      return list;
     }
+
+    // Safe migration: synchronize initial subcategories and their reviewQuestions while preserving user-created ones
+    let modified = false;
+    for (const initS of INITIAL_SUBCATEGORIES) {
+      const idx = list.findIndex((s) => s.id === initS.id || s.slug === initS.slug);
+      if (idx >= 0) {
+        if (
+          list[idx].reviewQuestion !== initS.reviewQuestion ||
+          list[idx].parentId !== initS.parentId ||
+          list[idx].name !== initS.name ||
+          JSON.stringify(list[idx].services) !== JSON.stringify(initS.services)
+        ) {
+          list[idx] = {
+            ...list[idx],
+            reviewQuestion: initS.reviewQuestion,
+            parentId: initS.parentId,
+            name: initS.name,
+            services: initS.services,
+          };
+          modified = true;
+        }
+      } else {
+        list.push(initS);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      await this.writeSubcategoriesAtomic(list);
+    }
+
+    return list;
   }
 
   private async writeSubcategoriesAtomic(subcats: Subcategory[]): Promise<void> {
@@ -503,16 +577,55 @@ export class JsonStorageAdapter implements StorageAdapter {
   // ==========================================
   private async readAllBusinesses(): Promise<Business[]> {
     await this.init();
+    let list: Business[] = [];
     if (this.useMemoryFallback) {
-      return Array.from(memoryBusinesses.values());
+      list = Array.from(memoryBusinesses.values());
+    } else {
+      try {
+        const content = await fs.readFile(this.businessesFilePath, "utf-8");
+        list = JSON.parse(content) as Business[];
+      } catch {
+        list = Array.from(memoryBusinesses.values());
+      }
     }
-    try {
-      const content = await fs.readFile(this.businessesFilePath, "utf-8");
-      const list = JSON.parse(content) as Business[];
-      return list.length > 0 ? list : SEED_BUSINESSES;
-    } catch {
-      return Array.from(memoryBusinesses.values());
+
+    if (!list || list.length === 0) {
+      list = [...SEED_BUSINESSES];
+      await this.writeBusinessesAtomic(list);
+      return list;
     }
+
+    // Safe migration: ensure platform provider (rmsolution) is properly isolated to IT
+    let modified = false;
+    for (const seed of SEED_BUSINESSES) {
+      const idx = list.findIndex((b) => b.id === seed.id || b.slug === seed.slug);
+      if (idx >= 0) {
+        if (seed.isPlatformProvider && !list[idx].isPlatformProvider) {
+          list[idx] = {
+            ...list[idx],
+            parentCategoryId: seed.parentCategoryId,
+            parentCategoryName: seed.parentCategoryName,
+            subcategoryId: seed.subcategoryId,
+            subcategoryName: seed.subcategoryName,
+            categoryId: seed.categoryId,
+            categoryName: seed.categoryName,
+            isPlatformProvider: true,
+            reviewQuestion: seed.reviewQuestion,
+            customServices: seed.customServices,
+          };
+          modified = true;
+        }
+      } else {
+        list.push(seed);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      await this.writeBusinessesAtomic(list);
+    }
+
+    return list;
   }
 
   private async writeBusinessesAtomic(businesses: Business[]): Promise<void> {
@@ -740,6 +853,7 @@ export class JsonStorageAdapter implements StorageAdapter {
       name: s.name,
       slug: s.slug,
       description: s.description,
+      reviewQuestion: s.reviewQuestion,
       isActive: s.isActive,
       services: s.services,
       placeholderText: s.placeholderText,
@@ -756,6 +870,7 @@ export class JsonStorageAdapter implements StorageAdapter {
         name: sub.name,
         slug: sub.slug,
         description: sub.description,
+        reviewQuestion: sub.reviewQuestion,
         isActive: sub.isActive,
         services: sub.services,
         placeholderText: sub.placeholderText,

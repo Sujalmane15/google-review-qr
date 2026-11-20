@@ -27,6 +27,7 @@ export async function GET(
         : [];
 
     let categoryPlaceholder: Record<string, string> | undefined = undefined;
+    let reviewQuestion: string | undefined = business.reviewQuestion;
 
     // 1. Try resolving from Subcategory
     const targetSubId = business.subcategoryId || business.categoryId;
@@ -35,6 +36,9 @@ export async function GET(
       if (sub && sub.isActive) {
         if (services.length === 0) {
           services = sub.services;
+        }
+        if (!reviewQuestion && sub.reviewQuestion) {
+          reviewQuestion = sub.reviewQuestion;
         }
         categoryPlaceholder = sub.placeholderText;
       }
@@ -45,6 +49,9 @@ export async function GET(
       const cat = await storage.getCategoryById(business.categoryId);
       if (cat && cat.isActive) {
         services = cat.services;
+        if (!reviewQuestion && cat.reviewQuestion) {
+          reviewQuestion = cat.reviewQuestion;
+        }
         categoryPlaceholder = cat.placeholderText;
       }
     }
@@ -58,6 +65,7 @@ export async function GET(
       subcategoryId: business.subcategoryId || business.categoryId,
       subcategoryName: business.subcategoryName || business.categoryName || "General Business",
       categoryName: business.subcategoryName || business.categoryName || "General Business",
+      reviewQuestion: reviewQuestion || undefined,
       googleReviewUrl: business.googleReviewUrl,
       logoUrl: business.logoUrl,
       description: business.description,

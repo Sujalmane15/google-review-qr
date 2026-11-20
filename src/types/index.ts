@@ -32,7 +32,8 @@ export interface Subcategory {
   name: string;
   slug: string;
   description?: string;
-  services: string[]; // e.g., ["Food Quality", "Drinks & Cocktails", "Ambience", "Service"] or ["Web Dev", "App Dev", "Code Quality"]
+  reviewQuestion?: string; // Dynamic business-type specific review question (e.g. "What did you appreciate about your stay?")
+  services: string[]; // Industry specific tags (e.g., ["Room Cleanliness", "Hospitality", "Facilities"])
   placeholderText?: Record<SupportedLanguage, string>;
   isActive: boolean;
   displayOrder?: number;
@@ -48,6 +49,7 @@ export interface BusinessCategory {
   description?: string;
   icon?: string;
   isActive: boolean;
+  reviewQuestion?: string;
   services: string[];
   placeholderText?: Record<SupportedLanguage, string>;
   createdAt: string;
@@ -66,6 +68,7 @@ export interface Business {
   parentCategoryName?: string;
   subcategoryId?: string; // Foreign key to Subcategory
   subcategoryName?: string;
+  reviewQuestion?: string; // Custom question configured by client or inherited from subcategory
   // Legacy / fallback category fields for backwards compatibility
   categoryId?: string;
   categoryName?: string;
@@ -79,6 +82,7 @@ export interface Business {
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
+  isPlatformProvider?: boolean; // Platform provider marker (e.g. RMSolution official profile)
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +104,7 @@ export interface ReviewSuggestionRequest {
   parentCategoryName?: string;
   subcategoryName?: string;
   categoryName?: string;
+  reviewQuestion?: string;
   rating: number; // 1 to 5
   selectedTags: string[];
   optionalCustomerText?: string;
